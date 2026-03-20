@@ -6,6 +6,7 @@ export interface RoborockQueueCardConfig {
   show_maintenance?: boolean;
   show_routines?: boolean;
   show_status?: boolean;
+  language?: string;
 }
 
 export interface RoomConfig {
