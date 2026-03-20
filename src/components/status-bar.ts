@@ -98,7 +98,7 @@ export class RqcStatusBar extends LitElement {
           <ha-icon icon="mdi:alert" style="--mdc-icon-size: 18px;"></ha-icon>
           <span>
             ${waterShortage ? t('maintenance.water_shortage') : ''}
-            ${dockError ? `${t('maintenance.dock_error')}: ${dockError}` : ''}
+            ${dockError ? `${t('maintenance.dock_error')}: ${t(`dock_error.${dockError}`)}` : ''}
             ${vacuumError ? `${t('status.error')}: ${vacuumError}` : ''}
           </span>
         </div>

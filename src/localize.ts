@@ -110,6 +110,16 @@ const translations: Record<string, Record<string, string>> = {
     'pause_reason.retry_exhausted': 'Alle forsøg fejlede',
     'pause_reason.timeout': 'Timeout — robot svarede ikke',
     'pause_reason.unexpected_dock': 'Robot vendte uventet tilbage til dock',
+
+    // Dock errors
+    'dock_error.ok': 'OK',
+    'dock_error.duct_blockage': 'Kanal blokeret',
+    'dock_error.water_empty': 'Tomt for vand',
+    'dock_error.waste_water_tank_full': 'Spildevandstank fuld',
+    'dock_error.maintenance_brush_jammed': 'Vedligeholdelsesbørste sidder fast',
+    'dock_error.dirty_tank_latch_open': 'Snavset tank-lås åben',
+    'dock_error.no_dustbin': 'Ingen støvbeholder',
+    'dock_error.cleaning_tank_full_or_blocked': 'Rengøringstank fuld eller blokeret',
   },
   en: {
     'status.battery': 'Battery',
@@ -208,6 +218,16 @@ const translations: Record<string, Record<string, string>> = {
     'pause_reason.retry_exhausted': 'All retry attempts failed',
     'pause_reason.timeout': 'Timeout — robot not responding',
     'pause_reason.unexpected_dock': 'Robot unexpectedly returned to dock',
+
+    // Dock errors
+    'dock_error.ok': 'OK',
+    'dock_error.duct_blockage': 'Duct blockage',
+    'dock_error.water_empty': 'Water empty',
+    'dock_error.waste_water_tank_full': 'Waste water tank full',
+    'dock_error.maintenance_brush_jammed': 'Maintenance brush jammed',
+    'dock_error.dirty_tank_latch_open': 'Dirty tank latch open',
+    'dock_error.no_dustbin': 'No dustbin',
+    'dock_error.cleaning_tank_full_or_blocked': 'Cleaning tank full or blocked',
   },
 };
 
