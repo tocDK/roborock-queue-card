@@ -69,6 +69,12 @@ export class RoborockQueueCard extends LitElement {
     return this._getQueueState() === 'paused';
   }
 
+  private _getRoomFloorTypes(): Record<string, string> {
+    if (!this._config?.queue_sensor || !this.hass) return {};
+    const sensorState = this.hass.states[this._config.queue_sensor];
+    return sensorState?.attributes?.room_floor_types || {};
+  }
+
   private _getQueueSteps(): QueueStep[] {
     const queueState = this.hass?.states[this._config?.queue_sensor];
     if (!queueState?.attributes?.steps) return [];
@@ -209,6 +215,7 @@ export class RoborockQueueCard extends LitElement {
                     .defaultFanSpeed=${this._defaultFanSpeed}
                     .defaultWaterLevel=${this._defaultWaterLevel}
                     .queueItems=${this._queueItems}
+                    .roomFloorTypes=${this._getRoomFloorTypes()}
                     @mode-changed=${this._handleModeChanged}
                     @default-fan-speed-changed=${this._handleDefaultFanSpeedChanged}
                     @default-water-level-changed=${this._handleDefaultWaterLevelChanged}
@@ -239,9 +246,10 @@ export class RoborockQueueCard extends LitElement {
       :host {
         display: block;
         width: 100%;
+        container-type: inline-size;
       }
       ha-card {
-        padding: 16px 24px;
+        padding: 16px;
         overflow: hidden;
         box-sizing: border-box;
       }
@@ -251,17 +259,35 @@ export class RoborockQueueCard extends LitElement {
       .routines-wrapper {
         margin-bottom: 16px;
       }
+
+      /* Default: single column (mobile) */
       .layout {
-        display: grid;
-        grid-template-columns: 1fr 350px;
-        gap: 24px;
-        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
-      @media (max-width: 900px) {
+
+      /* Medium screens: side-by-side */
+      @container (min-width: 500px) {
+        ha-card {
+          padding: 16px 24px;
+        }
         .layout {
-          grid-template-columns: 1fr;
+          display: grid;
+          grid-template-columns: 1fr 350px;
+          gap: 24px;
+          min-height: 400px;
         }
       }
+
+      /* Wide screens: more room */
+      @container (min-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr 400px;
+          gap: 32px;
+        }
+      }
+
       .main-area {
         overflow-y: auto;
         min-width: 0;
@@ -273,6 +299,7 @@ export class RoborockQueueCard extends LitElement {
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        min-height: 200px;
       }
     `;
   }

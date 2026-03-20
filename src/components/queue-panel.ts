@@ -44,6 +44,7 @@ export class RqcQueuePanel extends LitElement {
   @property({ type: Array }) public queueItems: QueueItem[] = [];
   @property({ type: String }) public defaultFanSpeed: FanSpeed = 'balanced';
   @property({ type: String }) public defaultWaterLevel: WaterLevel = 'medium';
+  @property({ attribute: false }) public roomFloorTypes: Record<string, string> = {};
 
   @state() private _expandedSettingsIndex: number | null = null;
 
@@ -113,21 +114,26 @@ export class RqcQueuePanel extends LitElement {
     this._expandedSettingsIndex = this._expandedSettingsIndex === index ? null : index;
   }
 
+  private _getWaterLevelForRoom(roomName: string): WaterLevel {
+    if (this.roomFloorTypes[roomName] === 'tile') return 'high';
+    if (this.roomFloorTypes[roomName] === 'wood') return 'medium';
+    return this.defaultWaterLevel;
+  }
+
   private async _handleStart(): Promise<void> {
     const steps = (this.queueItems || []).map((item) => {
       const step: Record<string, string> = {
         room: item.room,
         mode: item.mode,
       };
-      // Include fan speed if it differs from default
       const effectiveFanSpeed = item.fanSpeed ?? this.defaultFanSpeed;
-      const effectiveWaterLevel = item.waterLevel ?? this.defaultWaterLevel;
 
       if (item.mode === 'vacuum' || item.mode === 'deep') {
         step.fan_speed = effectiveFanSpeed;
       }
       if (item.mode === 'mop' || item.mode === 'deep') {
-        step.water_level = effectiveWaterLevel;
+        // Use explicit override > floor type default > global default
+        step.water_level = item.waterLevel ?? this._getWaterLevelForRoom(item.room);
       }
       return step;
     });
@@ -356,7 +362,8 @@ export class RqcQueuePanel extends LitElement {
     if (!showFan && !showWater) return nothing;
 
     const currentFanSpeed = item.fanSpeed ?? this.defaultFanSpeed;
-    const currentWaterLevel = item.waterLevel ?? this.defaultWaterLevel;
+    const floorDefault = this._getWaterLevelForRoom(item.room);
+    const currentWaterLevel = item.waterLevel ?? floorDefault;
 
     return html`
       <div class="item-settings">
@@ -396,7 +403,9 @@ export class RqcQueuePanel extends LitElement {
                           this._handleItemSettingChanged(index, 'waterLevel', level);
                         }}
                       >
-                        ${t(WATER_LEVEL_LABELS[level])}
+                        ${t(WATER_LEVEL_LABELS[level])}${!item.waterLevel && level === floorDefault && this.roomFloorTypes[item.room]
+                          ? html`<span class="default-hint">(${this.roomFloorTypes[item.room]})</span>`
+                          : nothing}
                       </button>
                     `
                   )}
@@ -529,6 +538,11 @@ export class RqcQueuePanel extends LitElement {
       }
       .setting-pill.overridden {
         /* Visual hint that this is a per-room override */
+      }
+      .default-hint {
+        font-size: 10px;
+        opacity: 0.7;
+        margin-left: 2px;
       }
       .setting-pill:active {
         transform: scale(0.95);
