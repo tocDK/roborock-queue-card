@@ -34,3 +34,6 @@ export interface PresetConfig {
 }
 
 export type CleaningMode = 'vacuum' | 'mop' | 'deep';
+
+export type FanSpeed = 'quiet' | 'balanced' | 'turbo' | 'max';
+export type WaterLevel = 'low' | 'medium' | 'high';

@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, CleaningMode, QueueStep } from './types';
+import { RoborockQueueCardConfig, CleaningMode, QueueStep, FanSpeed, WaterLevel } from './types';
 import { CARD_VERSION } from './const';
 import { setLanguage } from './localize';
 
@@ -22,6 +22,8 @@ console.info(
 interface QueueItem {
   room: string;
   mode: CleaningMode;
+  fanSpeed?: FanSpeed;
+  waterLevel?: WaterLevel;
 }
 
 @customElement('roborock-queue-card')
@@ -31,6 +33,8 @@ export class RoborockQueueCard extends LitElement {
   @state() private _selectedRooms: string[] = [];
   @state() private _queueItems: QueueItem[] = [];
   @state() private _defaultMode: CleaningMode = 'vacuum';
+  @state() private _defaultFanSpeed: FanSpeed = 'balanced';
+  @state() private _defaultWaterLevel: WaterLevel = 'medium';
 
   public setConfig(config: RoborockQueueCardConfig): void {
     if (!config.entity) {
@@ -98,6 +102,23 @@ export class RoborockQueueCard extends LitElement {
     const items = [...this._queueItems];
     if (items[index]) {
       items[index] = { ...items[index], mode };
+      this._queueItems = items;
+    }
+  }
+
+  private _handleDefaultFanSpeedChanged(e: CustomEvent): void {
+    this._defaultFanSpeed = e.detail.fanSpeed as FanSpeed;
+  }
+
+  private _handleDefaultWaterLevelChanged(e: CustomEvent): void {
+    this._defaultWaterLevel = e.detail.waterLevel as WaterLevel;
+  }
+
+  private _handleItemSettingChanged(e: CustomEvent): void {
+    const { index, setting, value } = e.detail;
+    const items = [...this._queueItems];
+    if (items[index]) {
+      items[index] = { ...items[index], [setting]: value };
       this._queueItems = items;
     }
   }
@@ -185,9 +206,14 @@ export class RoborockQueueCard extends LitElement {
                     .config=${this._config}
                     .selectedRooms=${this._selectedRooms}
                     .defaultMode=${this._defaultMode}
+                    .defaultFanSpeed=${this._defaultFanSpeed}
+                    .defaultWaterLevel=${this._defaultWaterLevel}
                     .queueItems=${this._queueItems}
                     @mode-changed=${this._handleModeChanged}
+                    @default-fan-speed-changed=${this._handleDefaultFanSpeedChanged}
+                    @default-water-level-changed=${this._handleDefaultWaterLevelChanged}
                     @item-mode-changed=${this._handleItemModeChanged}
+                    @item-setting-changed=${this._handleItemSettingChanged}
                     @room-removed=${this._handleRoomRemoved}
                     @queue-cleared=${this._handleQueueCleared}
                   ></rqc-queue-panel>

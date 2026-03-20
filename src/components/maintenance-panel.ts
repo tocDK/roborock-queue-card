@@ -82,6 +82,55 @@ export class RqcMaintenancePanel extends LitElement {
     return val ?? '-';
   }
 
+  // --- Dock diagnostic helpers ---
+
+  private _getDockCleanWaterOk(): boolean | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`binary_sensor.${name}_dock_clean_water_box`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    return val === 'on';
+  }
+
+  private _getDockDirtyWaterOk(): boolean | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`binary_sensor.${name}_dock_dirty_water_box`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    // on = problem (dirty water box full/issue), off = ok
+    return val === 'on';
+  }
+
+  private _getDockError(): string | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`sensor.${name}_dock_dock_error`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    return val;
+  }
+
+  private _getMopDrying(): boolean | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`binary_sensor.${name}_dock_mop_drying`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    return val === 'on';
+  }
+
+  private _getMopDryingTime(): number | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`sensor.${name}_dock_mop_drying_remaining_time`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    const num = parseFloat(val);
+    if (isNaN(num)) return null;
+    return num;
+  }
+
+  private _getDockStrainerHours(): number | null {
+    const name = this._getDeviceName();
+    const val = this._getEntityState(`sensor.${name}_dock_strainer_time_left`);
+    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
+    const num = parseFloat(val);
+    if (isNaN(num)) return null;
+    return num;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -113,6 +162,11 @@ export class RqcMaintenancePanel extends LitElement {
 
                 <div class="divider"></div>
 
+                <!-- Dock diagnostics -->
+                ${this._renderDockSection()}
+
+                <div class="divider"></div>
+
                 <!-- Stats -->
                 <div class="stats-grid">
                   <div class="stat">
@@ -131,6 +185,97 @@ export class RqcMaintenancePanel extends LitElement {
               </div>
             `
           : nothing}
+      </div>
+    `;
+  }
+
+  private _renderDockSection() {
+    const cleanWater = this._getDockCleanWaterOk();
+    const dirtyWater = this._getDockDirtyWaterOk();
+    const dockError = this._getDockError();
+    const mopDrying = this._getMopDrying();
+    const mopDryingTime = this._getMopDryingTime();
+    const strainerHours = this._getDockStrainerHours();
+
+    // If all entities are unavailable, skip the section
+    if (cleanWater === null && dirtyWater === null && dockError === null && mopDrying === null && strainerHours === null) {
+      return nothing;
+    }
+
+    const hasError = dockError !== null && dockError !== 'ok';
+    const hasDirtyWaterProblem = dirtyWater === true;
+    const hasCleanWaterProblem = cleanWater === false;
+
+    return html`
+      <div class="dock-section">
+        <div class="dock-header">
+          <ha-icon icon="mdi:robot-vacuum-variant" style="--mdc-icon-size: 16px;"></ha-icon>
+          <span>${t('dock.title')}</span>
+        </div>
+        <div class="dock-grid">
+          ${cleanWater !== null
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.clean_water')}</div>
+                  <div class="dock-value ${hasCleanWaterProblem ? 'dock-error' : 'dock-ok'}">
+                    ${hasCleanWaterProblem ? t('dock.problem') : t('dock.ok')}
+                  </div>
+                </div>
+              `
+            : nothing}
+          ${dirtyWater !== null
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.dirty_water')}</div>
+                  <div class="dock-value ${hasDirtyWaterProblem ? 'dock-error' : 'dock-ok'}">
+                    ${hasDirtyWaterProblem ? t('dock.problem') : t('dock.ok')}
+                  </div>
+                </div>
+              `
+            : nothing}
+          ${dockError !== null
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.error')}</div>
+                  <div class="dock-value ${hasError ? 'dock-error' : 'dock-ok'}">
+                    ${hasError ? dockError : t('dock.ok')}
+                  </div>
+                </div>
+              `
+            : nothing}
+          ${mopDrying !== null
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.mop_drying')}</div>
+                  <div class="dock-value ${mopDrying ? 'dock-active' : 'dock-idle'}">
+                    ${mopDrying ? t('dock.running') : t('dock.idle')}
+                  </div>
+                </div>
+              `
+            : nothing}
+          ${mopDryingTime !== null && mopDrying
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.mop_drying_time')}</div>
+                  <div class="dock-value dock-active">
+                    ${Math.round(mopDryingTime / 60)} min
+                  </div>
+                </div>
+              `
+            : nothing}
+          ${strainerHours !== null
+            ? html`
+                <div class="dock-item">
+                  <div class="dock-label">${t('dock.strainer')}</div>
+                  <div class="dock-value ${strainerHours < 0 ? 'dock-error' : strainerHours < 50 ? 'dock-warn' : 'dock-ok'}">
+                    ${strainerHours < 0
+                      ? `${Math.abs(Math.round(strainerHours))}h OVERSKREDET`
+                      : `${Math.round(strainerHours)}h`}
+                  </div>
+                </div>
+              `
+            : nothing}
+        </div>
       </div>
     `;
   }
@@ -374,6 +519,63 @@ export class RqcMaintenancePanel extends LitElement {
         font-size: 10px;
         color: var(--secondary-text-color);
         font-weight: 500;
+      }
+
+      /* Dock diagnostics */
+      .dock-section {
+        margin: 0;
+      }
+      .dock-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--secondary-text-color);
+        margin-bottom: 10px;
+      }
+      .dock-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .dock-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .dock-label {
+        color: var(--primary-text-color);
+      }
+      .dock-value {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .dock-ok {
+        color: var(--label-badge-green, #43a047);
+        background: rgba(67, 160, 71, 0.1);
+      }
+      .dock-warn {
+        color: var(--label-badge-yellow, #f9a825);
+        background: rgba(249, 168, 37, 0.1);
+      }
+      .dock-error {
+        color: var(--error-color, #ef5350);
+        background: rgba(239, 83, 80, 0.1);
+      }
+      .dock-active {
+        color: var(--primary-color, #2196f3);
+        background: rgba(33, 150, 243, 0.1);
+      }
+      .dock-idle {
+        color: var(--secondary-text-color);
+        background: var(--secondary-background-color);
       }
     `;
   }
