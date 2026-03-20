@@ -59,6 +59,25 @@ export class RqcStatusBar extends LitElement {
     return this._getEntityState(`binary_sensor.${name}_mop_attached`) === 'on';
   }
 
+  private _hasWaterShortage(): boolean {
+    const name = this._getDeviceName();
+    return this._getEntityState(`binary_sensor.${name}_water_shortage`) === 'on';
+  }
+
+  private _getDockError(): string | null {
+    const name = this._getDeviceName();
+    const error = this._getEntityState(`sensor.${name}_dock_dock_error`);
+    if (!error || error === 'ok' || error === 'unknown' || error === 'unavailable') return null;
+    return error;
+  }
+
+  private _getVacuumError(): string | null {
+    const name = this._getDeviceName();
+    const error = this._getEntityState(`sensor.${name}_vacuum_error`);
+    if (!error || error === 'none' || error === '0' || error === 'unknown' || error === 'unavailable') return null;
+    return error;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -68,8 +87,22 @@ export class RqcStatusBar extends LitElement {
     const status = this._getStatusText();
     const currentRoom = this._getCurrentRoom();
     const mopAttached = this._isMopAttached();
+    const waterShortage = this._hasWaterShortage();
+    const dockError = this._getDockError();
+    const vacuumError = this._getVacuumError();
+    const hasWarning = waterShortage || dockError || vacuumError;
 
     return html`
+      ${hasWarning ? html`
+        <div class="warning-bar">
+          <ha-icon icon="mdi:alert" style="--mdc-icon-size: 18px;"></ha-icon>
+          <span>
+            ${waterShortage ? t('maintenance.water_shortage') : ''}
+            ${dockError ? `${t('maintenance.dock_error')}: ${dockError}` : ''}
+            ${vacuumError ? `${t('status.error')}: ${vacuumError}` : ''}
+          </span>
+        </div>
+      ` : nothing}
       <div class="status-bar">
         <div class="status-item">
           <ha-icon
@@ -112,6 +145,18 @@ export class RqcStatusBar extends LitElement {
     return css`
       :host {
         display: block;
+      }
+      .warning-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        margin-bottom: 8px;
+        background: var(--error-color, #db4437);
+        color: white;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
       }
       .status-bar {
         display: flex;
