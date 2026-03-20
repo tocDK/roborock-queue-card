@@ -103,6 +103,13 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Lav',
     'settings.medium': 'Medium',
     'settings.high': 'Høj',
+
+    // Pause reasons
+    'pause_reason.user_paused': 'Sat på pause af bruger',
+    'pause_reason.vacuum_error': 'Robotstøvsuger fejl',
+    'pause_reason.retry_exhausted': 'Alle forsøg fejlede',
+    'pause_reason.timeout': 'Timeout — robot svarede ikke',
+    'pause_reason.unexpected_dock': 'Robot vendte uventet tilbage til dock',
   },
   en: {
     'status.battery': 'Battery',
@@ -194,6 +201,13 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Low',
     'settings.medium': 'Medium',
     'settings.high': 'High',
+
+    // Pause reasons
+    'pause_reason.user_paused': 'Paused by user',
+    'pause_reason.vacuum_error': 'Vacuum error',
+    'pause_reason.retry_exhausted': 'All retry attempts failed',
+    'pause_reason.timeout': 'Timeout — robot not responding',
+    'pause_reason.unexpected_dock': 'Robot unexpectedly returned to dock',
   },
 };
 

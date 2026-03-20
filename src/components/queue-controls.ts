@@ -42,6 +42,12 @@ export class RqcQueueControls extends LitElement {
     }
   }
 
+  private _getPauseReason(): string | null {
+    if (!this.config?.queue_sensor || !this.hass) return null;
+    const sensorState = this.hass.states[this.config.queue_sensor];
+    return sensorState?.attributes?.pause_reason || null;
+  }
+
   private async _handlePause(): Promise<void> {
     await this.hass.callService('roborock_mcp', 'queue_pause', {});
   }
@@ -75,6 +81,13 @@ export class RqcQueueControls extends LitElement {
         <div class="panel-header">
           <h2>${t('controls.cleaning_in_progress')}</h2>
         </div>
+
+        ${this.isPaused && this._getPauseReason() ? html`
+          <div class="pause-banner">
+            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+            <span>${t(`pause_reason.${this._getPauseReason()}`)}</span>
+          </div>
+        ` : nothing}
 
         <!-- Progress -->
         <div class="progress-section">
@@ -160,6 +173,20 @@ export class RqcQueueControls extends LitElement {
         font-size: 18px;
         font-weight: 700;
         margin: 0;
+      }
+      .pause-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 20px;
+        background: var(--error-color, #db4437);
+        color: white;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .pause-banner ha-icon {
+        --mdc-icon-size: 20px;
+        flex-shrink: 0;
       }
       .progress-section {
         padding: 16px 20px;
