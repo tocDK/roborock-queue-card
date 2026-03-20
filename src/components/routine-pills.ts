@@ -109,6 +109,7 @@ export class RqcRoutinePills extends LitElement {
     return css`
       :host {
         display: block;
+        container-type: inline-size;
       }
       .routines-section {
         margin-bottom: 16px;
@@ -127,6 +128,13 @@ export class RqcRoutinePills extends LitElement {
         overflow-x: auto;
         padding-bottom: 4px;
         -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+      }
+      @container (min-width: 500px) {
+        .routines-scroll {
+          flex-wrap: wrap;
+          overflow-x: visible;
+        }
       }
       .routines-scroll::-webkit-scrollbar {
         height: 4px;

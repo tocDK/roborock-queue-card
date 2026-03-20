@@ -151,13 +151,8 @@ export class RqcRoomGrid extends LitElement {
       }
       .cards-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-      }
-      @media (max-width: 600px) {
-        .cards-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
       }
       .room-card {
         background: var(--card-background-color, #fff);
@@ -171,6 +166,7 @@ export class RqcRoomGrid extends LitElement {
         overflow: hidden;
         min-height: 80px;
         min-width: 0;
+        touch-action: manipulation;
       }
       .room-card:active {
         transform: scale(0.97);
