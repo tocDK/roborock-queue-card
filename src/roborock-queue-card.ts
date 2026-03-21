@@ -12,6 +12,7 @@ import './components/room-grid';
 import './components/queue-panel';
 import './components/queue-controls';
 import './components/maintenance-panel';
+import './components/diagnostics-panel';
 
 console.info(
   `%c ROBOROCK-QUEUE-CARD %c v${CARD_VERSION} `,
@@ -233,6 +234,16 @@ export class RoborockQueueCard extends LitElement {
                     .hass=${this.hass}
                     .config=${this._config}
                   ></rqc-maintenance-panel>
+                `
+              : nothing}
+
+            <!-- Diagnostics panel (opt-in) -->
+            ${this._config.show_diagnostics === true
+              ? html`
+                  <rqc-diagnostics-panel
+                    .hass=${this.hass}
+                    .config=${this._config}
+                  ></rqc-diagnostics-panel>
                 `
               : nothing}
           </div>
