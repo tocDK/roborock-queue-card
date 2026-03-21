@@ -163,7 +163,7 @@ export class RqcRoutinePills extends LitElement {
       }
       .routine-pill:hover {
         border-color: var(--primary-color, #2196f3);
-        background: var(--primary-color-light, #e3f2fd);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 12%, var(--card-background-color, #fff));
       }
       .routine-pill:active {
         transform: scale(0.95);

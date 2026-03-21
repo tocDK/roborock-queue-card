@@ -621,7 +621,7 @@ export class RqcQueuePanel extends LitElement {
         color: var(--primary-text-color);
       }
       .q-item-mode:hover {
-        background: rgba(0,0,0,0.06);
+        background: var(--secondary-background-color);
       }
       .q-item-mode:active {
         transform: scale(0.9);
@@ -643,12 +643,12 @@ export class RqcQueuePanel extends LitElement {
       }
       .q-item-settings:hover {
         opacity: 1;
-        background: rgba(0,0,0,0.06);
+        background: var(--secondary-background-color);
       }
       .q-item-settings.active {
         opacity: 1;
         color: var(--primary-color, #2196f3);
-        background: rgba(33, 150, 243, 0.1);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 12%, var(--card-background-color, #fff));
       }
       .q-item-remove {
         width: 28px;
@@ -667,7 +667,7 @@ export class RqcQueuePanel extends LitElement {
       }
       .q-item-remove:hover {
         opacity: 1;
-        background: rgba(239,83,80,0.1);
+        background: color-mix(in srgb, var(--error-color, #ef5350) 12%, var(--card-background-color, #fff));
         color: var(--error-color, #ef5350);
       }
       .deep-substeps {

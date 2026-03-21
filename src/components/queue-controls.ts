@@ -235,8 +235,8 @@ export class RqcQueueControls extends LitElement {
         transition: all 0.2s;
       }
       .step-item.in_progress {
-        background: var(--success-color-light, #e8f5e9);
-        border: 1px solid rgba(67, 160, 71, 0.3);
+        background: color-mix(in srgb, var(--label-badge-green, #43a047) 12%, var(--card-background-color, #fff));
+        border: 1px solid color-mix(in srgb, var(--label-badge-green, #43a047) 30%, transparent);
       }
       .step-item.completed {
         opacity: 0.5;
@@ -294,7 +294,7 @@ export class RqcQueueControls extends LitElement {
         background: var(--secondary-background-color);
       }
       .btn-danger {
-        background: rgba(239,83,80,0.1);
+        background: color-mix(in srgb, var(--error-color, #ef5350) 12%, var(--card-background-color, #fff));
         color: var(--error-color, #ef5350);
       }
     `;

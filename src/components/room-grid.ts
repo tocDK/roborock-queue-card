@@ -176,7 +176,7 @@ export class RqcRoomGrid extends LitElement {
       }
       .room-card.selected {
         border: 2px solid var(--primary-color, #2196f3);
-        background: var(--primary-color-light, #e3f2fd);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 12%, var(--card-background-color, #fff));
       }
       .room-card.selected::after {
         content: '';
@@ -187,7 +187,7 @@ export class RqcRoomGrid extends LitElement {
       }
       .room-card.cleaning {
         border-color: var(--label-badge-green, #43a047);
-        background: var(--success-color-light, #e8f5e9);
+        background: color-mix(in srgb, var(--label-badge-green, #43a047) 12%, var(--card-background-color, #fff));
       }
       .room-card.cleaning::after {
         content: '';
@@ -224,7 +224,7 @@ export class RqcRoomGrid extends LitElement {
         flex-shrink: 0;
       }
       .room-card.selected .card-icon {
-        background: rgba(33, 150, 243, 0.15);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 15%, var(--secondary-background-color));
       }
       .card-badge {
         width: 28px;

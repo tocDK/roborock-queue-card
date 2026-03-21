@@ -452,7 +452,7 @@ export class RqcMaintenancePanel extends LitElement {
         min-height: 28px;
       }
       .reset-btn:hover {
-        background: var(--primary-color-light, #e3f2fd);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 12%, var(--card-background-color, #fff));
       }
       .reset-btn:active {
         transform: scale(0.95);
@@ -563,15 +563,15 @@ export class RqcMaintenancePanel extends LitElement {
       }
       .dock-warn {
         color: var(--label-badge-yellow, #f9a825);
-        background: rgba(249, 168, 37, 0.1);
+        background: color-mix(in srgb, var(--label-badge-yellow, #f9a825) 12%, var(--card-background-color, #fff));
       }
       .dock-error {
         color: var(--error-color, #ef5350);
-        background: rgba(239, 83, 80, 0.1);
+        background: color-mix(in srgb, var(--error-color, #ef5350) 12%, var(--card-background-color, #fff));
       }
       .dock-active {
         color: var(--primary-color, #2196f3);
-        background: rgba(33, 150, 243, 0.1);
+        background: color-mix(in srgb, var(--primary-color, #2196f3) 12%, var(--card-background-color, #fff));
       }
       .dock-idle {
         color: var(--secondary-text-color);
