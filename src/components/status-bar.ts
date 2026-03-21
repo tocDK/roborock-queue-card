@@ -19,19 +19,23 @@ export class RqcStatusBar extends LitElement {
     return this.hass.states[entityId]?.state;
   }
 
-  private _getBatteryLevel(): number {
+  private _getBatteryLevel(): number | null {
     const name = this._getDeviceName();
     const val = this._getEntityState(`sensor.${name}_battery`);
-    return val ? parseInt(val, 10) : 0;
+    if (!val || val === 'unknown' || val === 'unavailable') return null;
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? null : parsed;
   }
 
-  private _getBatteryColor(level: number): string {
+  private _getBatteryColor(level: number | null): string {
+    if (level === null) return 'var(--secondary-text-color)';
     if (level > 50) return 'var(--label-badge-green, #43a047)';
     if (level > 20) return 'var(--label-badge-yellow, #fbc02d)';
     return 'var(--label-badge-red, #ef5350)';
   }
 
-  private _getBatteryIcon(level: number): string {
+  private _getBatteryIcon(level: number | null): string {
+    if (level === null) return 'mdi:battery-unknown';
     if (level > 80) return 'mdi:battery';
     if (level > 60) return 'mdi:battery-80';
     if (level > 40) return 'mdi:battery-60';
@@ -44,7 +48,10 @@ export class RqcStatusBar extends LitElement {
     const vacuumState = this.hass.states[this.config.entity];
     if (!vacuumState) return t('status.error');
     const state = vacuumState.state;
-    return getStatusLabel(state) ?? state;
+    const label = getStatusLabel(state);
+    // If getStatusLabel returns the raw key (no translation found), show unknown
+    if (label === `status.${state}`) return t('status.unknown');
+    return label;
   }
 
   private _getCurrentRoom(): string | null {
@@ -109,7 +116,7 @@ export class RqcStatusBar extends LitElement {
             .icon=${batteryIcon}
             style="color: ${batteryColor}; --mdc-icon-size: 18px;"
           ></ha-icon>
-          <span class="status-value">${battery}%</span>
+          <span class="status-value">${battery !== null ? `${battery}%` : '\u2014'}</span>
         </div>
 
         <div class="divider"></div>
