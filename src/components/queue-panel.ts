@@ -345,14 +345,13 @@ export class RqcQueuePanel extends LitElement {
   }
 
   private _getLastRunTime(): string | null {
+    const lastRun = this._getLastRun();
+    if (!lastRun) return null;
     const history = this._getRoomHistory();
     let latest: string | null = null;
-    for (const roomData of Object.values(history)) {
-      for (const modeData of Object.values(roomData as Record<string, any>)) {
-        if (modeData?.last_cleaned && (!latest || modeData.last_cleaned > latest)) {
-          latest = modeData.last_cleaned;
-        }
-      }
+    for (const step of lastRun.filter((s) => s.status === 'completed')) {
+      const ts = history[step.room]?.[step.mode]?.last_cleaned;
+      if (ts && (!latest || ts > latest)) latest = ts;
     }
     if (!latest) return null;
     const d = new Date(latest);
