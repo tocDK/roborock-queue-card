@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, CleaningMode, FanSpeed, WaterLevel } from '../types';
+import { RoborockQueueCardConfig, CleaningMode, FanSpeed, WaterLevel, Passes } from '../types';
 import { getModeLabel, MODE_ICONS, guessRoomIcon } from '../const';
 import { t } from '../localize';
 
@@ -10,11 +10,13 @@ export interface QueueItem {
   mode: CleaningMode;
   fanSpeed?: FanSpeed;
   waterLevel?: WaterLevel;
+  passes?: Passes;
 }
 
 const MODES: CleaningMode[] = ['vacuum', 'mop', 'deep'];
 const FAN_SPEEDS: FanSpeed[] = ['quiet', 'balanced', 'turbo', 'max'];
 const WATER_LEVELS: WaterLevel[] = ['low', 'medium', 'high'];
+const PASSES_OPTIONS: Passes[] = [1, 2, 3];
 
 const FAN_SPEED_LABELS: Record<FanSpeed, string> = {
   quiet: 'settings.quiet',
@@ -44,6 +46,7 @@ export class RqcQueuePanel extends LitElement {
   @property({ type: Array }) public queueItems: QueueItem[] = [];
   @property({ type: String }) public defaultFanSpeed: FanSpeed = 'balanced';
   @property({ type: String }) public defaultWaterLevel: WaterLevel = 'medium';
+  @property({ type: Number }) public defaultPasses: Passes = 2;
   @property({ attribute: false }) public roomFloorTypes: Record<string, string> = {};
 
   @state() private _expandedSettingsIndex: number | null = null;
@@ -72,6 +75,16 @@ export class RqcQueuePanel extends LitElement {
     this.dispatchEvent(
       new CustomEvent('default-water-level-changed', {
         detail: { waterLevel },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private _handleDefaultPassesChange(passes: Passes): void {
+    this.dispatchEvent(
+      new CustomEvent('default-passes-changed', {
+        detail: { passes },
         bubbles: true,
         composed: true,
       })
@@ -122,7 +135,7 @@ export class RqcQueuePanel extends LitElement {
 
   private async _handleStart(): Promise<void> {
     const steps = (this.queueItems || []).map((item) => {
-      const step: Record<string, string> = {
+      const step: Record<string, string | number> = {
         room: item.room,
         mode: item.mode,
       };
@@ -132,9 +145,9 @@ export class RqcQueuePanel extends LitElement {
         step.fan_speed = effectiveFanSpeed;
       }
       if (item.mode === 'mop' || item.mode === 'deep') {
-        // Use explicit override > floor type default > global default
         step.water_level = item.waterLevel ?? this._getWaterLevelForRoom(item.room);
       }
+      step.passes = item.passes ?? this.defaultPasses;
       return step;
     });
     await this.hass.callService('roborock_mcp', 'queue_start', { steps });
@@ -150,12 +163,27 @@ export class RqcQueuePanel extends LitElement {
     );
   }
 
-  private _getEstimatedTime(): number {
+  private _getRoomHistory(): Record<string, Record<string, any>> {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.room_history || {};
+  }
+
+  private _getEstimatedTime(): number | null {
+    const history = this._getRoomHistory();
     let total = 0;
+    let hasData = false;
+
     for (const item of this.queueItems) {
-      total += MINUTES_PER_STEP[item.mode];
+      const roomData = history[item.room];
+      const modeData = roomData?.[item.mode];
+      if (modeData?.avg_duration_s) {
+        total += modeData.avg_duration_s;
+        hasData = true;
+      } else {
+        total += (item.mode === 'deep' ? 600 : 300);
+      }
     }
-    return total;
+    return hasData ? Math.round(total / 60) : null;
   }
 
   private _getRoomIcon(roomName: string): string {
@@ -175,8 +203,6 @@ export class RqcQueuePanel extends LitElement {
 
   protected render() {
     if (!this.hass || !this.config) return nothing;
-
-    const estimatedTime = this._getEstimatedTime();
 
     return html`
       <div class="queue-panel">
@@ -281,7 +307,12 @@ export class RqcQueuePanel extends LitElement {
             ? html`
                 <div class="estimated-time">
                   <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
-                  ${t('queue.estimate')}: ${t('queue.estimate_no_data')}
+                  ${(() => {
+                    const est = this._getEstimatedTime();
+                    return est !== null
+                      ? `${t('queue.estimate')}: ${t('queue.estimate_minutes').replace('{0}', String(est))}`
+                      : `${t('queue.estimate')}: ${t('queue.estimate_no_data')}`;
+                  })()}
                 </div>
               `
             : nothing}
@@ -308,8 +339,6 @@ export class RqcQueuePanel extends LitElement {
   private _renderDefaultSettings() {
     const showFan = this._showFanSpeed(this.defaultMode);
     const showWater = this._showWaterLevel(this.defaultMode);
-
-    if (!showFan && !showWater) return nothing;
 
     return html`
       <div class="default-settings">
@@ -351,6 +380,21 @@ export class RqcQueuePanel extends LitElement {
               </div>
             `
           : nothing}
+        <div class="setting-row">
+          <div class="setting-label">${t('settings.passes')}</div>
+          <div class="setting-pills small">
+            ${PASSES_OPTIONS.map(
+              (p) => html`
+                <button
+                  class="setting-pill ${this.defaultPasses === p ? 'active' : ''}"
+                  @click=${() => this._handleDefaultPassesChange(p)}
+                >
+                  ${p}x
+                </button>
+              `
+            )}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -359,11 +403,10 @@ export class RqcQueuePanel extends LitElement {
     const showFan = this._showFanSpeed(item.mode);
     const showWater = this._showWaterLevel(item.mode);
 
-    if (!showFan && !showWater) return nothing;
-
     const currentFanSpeed = item.fanSpeed ?? this.defaultFanSpeed;
     const floorDefault = this._getWaterLevelForRoom(item.room);
     const currentWaterLevel = item.waterLevel ?? floorDefault;
+    const currentPasses = item.passes ?? this.defaultPasses;
 
     return html`
       <div class="item-settings">
@@ -413,6 +456,24 @@ export class RqcQueuePanel extends LitElement {
               </div>
             `
           : nothing}
+        <div class="setting-row compact">
+          <div class="setting-label">${t('settings.passes')}</div>
+          <div class="setting-pills tiny">
+            ${PASSES_OPTIONS.map(
+              (p) => html`
+                <button
+                  class="setting-pill ${currentPasses === p ? 'active' : ''} ${item.passes === p ? 'overridden' : ''}"
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._handleItemSettingChanged(index, 'passes', p);
+                  }}
+                >
+                  ${p}x
+                </button>
+              `
+            )}
+          </div>
+        </div>
       </div>
     `;
   }
