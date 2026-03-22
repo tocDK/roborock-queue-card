@@ -25,11 +25,17 @@ const translations: Record<string, Record<string, string>> = {
 
     // Routines
     'routines.title': 'Rutiner',
+    'routines.running': 'Kører',
 
     // Room grid
     'rooms.empty': 'Ingen rum tilgængelige',
     'rooms.cleaning': 'Rengør...',
     'rooms.done': 'Færdig',
+    'rooms.ago_minutes': '{0}m siden',
+    'rooms.ago_hours': '{0}t siden',
+    'rooms.ago_days': '{0}d siden',
+    'rooms.yesterday': 'I går',
+    'rooms.today': 'I dag',
 
     // Queue panel
     'queue.title': 'Rengøringskø',
@@ -39,6 +45,9 @@ const translations: Record<string, Record<string, string>> = {
     'queue.clear': 'Ryd valg',
     'queue.estimate_no_data': 'Ingen data endnu',
     'queue.estimate': 'Estimeret',
+    'queue.last_run_title': 'Sidste rengøring',
+    'queue.last_run_finished': 'Afsluttet kl.',
+    'queue.estimate_minutes': 'ca. {0} min',
 
     // Modes
     'mode.vacuum': 'Støvsug',
@@ -103,6 +112,7 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Lav',
     'settings.medium': 'Medium',
     'settings.high': 'Høj',
+    'settings.passes': 'Antal gange',
 
     // Pause reasons
     'pause_reason.user_paused': 'Sat på pause af bruger',
@@ -186,10 +196,16 @@ const translations: Record<string, Record<string, string>> = {
     'common.off': 'Off',
 
     'routines.title': 'Routines',
+    'routines.running': 'Running',
 
     'rooms.empty': 'No rooms available',
     'rooms.cleaning': 'Cleaning...',
     'rooms.done': 'Done',
+    'rooms.ago_minutes': '{0}m ago',
+    'rooms.ago_hours': '{0}h ago',
+    'rooms.ago_days': '{0}d ago',
+    'rooms.yesterday': 'Yesterday',
+    'rooms.today': 'Today',
 
     'queue.title': 'Cleaning Queue',
     'queue.default_mode': 'Default mode for new rooms',
@@ -198,6 +214,9 @@ const translations: Record<string, Record<string, string>> = {
     'queue.clear': 'Clear selection',
     'queue.estimate_no_data': 'No data yet',
     'queue.estimate': 'Estimated',
+    'queue.last_run_title': 'Last cleaning',
+    'queue.last_run_finished': 'Finished at',
+    'queue.estimate_minutes': 'approx. {0} min',
 
     'mode.vacuum': 'Vacuum',
     'mode.mop': 'Mop',
@@ -258,6 +277,7 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Low',
     'settings.medium': 'Medium',
     'settings.high': 'High',
+    'settings.passes': 'Passes',
 
     // Pause reasons
     'pause_reason.user_paused': 'Paused by user',

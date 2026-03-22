@@ -34,7 +34,32 @@ export interface PresetConfig {
   steps: Array<{ room: string; mode: string }>;
 }
 
+export interface RoomHistoryEntry {
+  last_cleaned: string;
+  last_duration_s: number;
+  avg_duration_s: number;
+  clean_count: number;
+}
+
+export interface RoomHistory {
+  [room: string]: {
+    [mode: string]: RoomHistoryEntry;
+  };
+}
+
+export interface ActiveRoutine {
+  name: string;
+  type: 'preset' | 'native';
+}
+
+export interface LastRunStep {
+  room: string;
+  mode: string;
+  status: string;
+}
+
 export type CleaningMode = 'vacuum' | 'mop' | 'deep';
 
 export type FanSpeed = 'quiet' | 'balanced' | 'turbo' | 'max';
 export type WaterLevel = 'low' | 'medium' | 'high';
+export type Passes = 1 | 2 | 3;
