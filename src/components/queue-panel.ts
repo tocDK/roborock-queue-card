@@ -332,6 +332,68 @@ export class RqcQueuePanel extends LitElement {
             ${t('queue.clear')}
           </button>
         </div>
+
+        <!-- Last cleaning summary -->
+        ${this._renderLastRun()}
+      </div>
+    `;
+  }
+
+  private _getLastRun(): Array<{room: string; mode: string; status: string}> | null {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.last_run || null;
+  }
+
+  private _getLastRunTime(): string | null {
+    const history = this._getRoomHistory();
+    let latest: string | null = null;
+    for (const roomData of Object.values(history)) {
+      for (const modeData of Object.values(roomData as Record<string, any>)) {
+        if (modeData?.last_cleaned && (!latest || modeData.last_cleaned > latest)) {
+          latest = modeData.last_cleaned;
+        }
+      }
+    }
+    if (!latest) return null;
+    const d = new Date(latest);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  private _getStepDuration(room: string, mode: string): string | null {
+    const history = this._getRoomHistory();
+    const dur = history[room]?.[mode]?.last_duration_s;
+    if (!dur) return null;
+    return `${Math.round(dur / 60)} min`;
+  }
+
+  private _renderLastRun() {
+    const lastRun = this._getLastRun();
+    if (!lastRun || lastRun.length === 0) return nothing;
+
+    const finishedTime = this._getLastRunTime();
+
+    return html`
+      <div class="last-run">
+        <h3>${t('queue.last_run_title')}</h3>
+        <div class="last-run-list">
+          ${lastRun
+            .filter((s) => s.status === 'completed')
+            .map(
+              (step) => html`
+                <div class="last-run-item">
+                  <ha-icon .icon=${MODE_ICONS[step.mode as CleaningMode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 16px;"></ha-icon>
+                  <span class="last-run-room">${step.room}</span>
+                  <span class="last-run-mode">${getModeLabel(step.mode as CleaningMode)}</span>
+                  ${this._getStepDuration(step.room, step.mode)
+                    ? html`<span class="last-run-duration">${this._getStepDuration(step.room, step.mode)}</span>`
+                    : nothing}
+                </div>
+              `
+            )}
+        </div>
+        ${finishedTime
+          ? html`<div class="last-run-time">${t('queue.last_run_finished')} ${finishedTime}</div>`
+          : nothing}
       </div>
     `;
   }
@@ -809,6 +871,49 @@ export class RqcQueuePanel extends LitElement {
         font-size: 13px;
         min-height: 40px;
         padding: 8px;
+      }
+      .last-run {
+        padding: 16px 20px;
+        border-top: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+      }
+      .last-run h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .last-run-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .last-run-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--primary-text-color);
+      }
+      .last-run-room {
+        flex: 1;
+        font-weight: 500;
+      }
+      .last-run-mode {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .last-run-duration {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-weight: 500;
+      }
+      .last-run-time {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        text-align: right;
       }
     `;
   }
