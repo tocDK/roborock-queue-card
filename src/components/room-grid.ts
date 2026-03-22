@@ -54,6 +54,9 @@ export class RqcRoomGrid extends LitElement {
   }
 
   private _isRoomDone(roomName: string): boolean {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    const state = queueState?.state ?? 'idle';
+    if (state === 'idle') return false;
     return this.queueSteps.some(
       (s) => s.room === roomName && s.status === 'completed'
     );
@@ -69,9 +72,42 @@ export class RqcRoomGrid extends LitElement {
     );
   }
 
-  private _getLastCleaned(_roomName: string): string | null {
-    // Could be extended with a sensor attribute in the future
-    return null;
+  private _getRoomHistory(): Record<string, Record<string, any>> {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.room_history || {};
+  }
+
+  private _getLastCleaned(roomName: string): string | null {
+    const history = this._getRoomHistory();
+    const roomData = history[roomName];
+    if (!roomData) return null;
+
+    let latest: string | null = null;
+    for (const modeData of Object.values(roomData) as any[]) {
+      if (modeData?.last_cleaned) {
+        if (!latest || modeData.last_cleaned > latest) {
+          latest = modeData.last_cleaned;
+        }
+      }
+    }
+    if (!latest) return null;
+
+    return this._formatRelativeTime(latest);
+  }
+
+  private _formatRelativeTime(isoString: string): string {
+    const now = new Date();
+    const then = new Date(isoString);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return t('rooms.today');
+    if (diffMin < 60) return t('rooms.ago_minutes').replace('{0}', String(diffMin));
+    if (diffHours < 24) return t('rooms.ago_hours').replace('{0}', String(diffHours));
+    if (diffDays === 1) return t('rooms.yesterday');
+    return t('rooms.ago_days').replace('{0}', String(diffDays));
   }
 
   protected render() {
