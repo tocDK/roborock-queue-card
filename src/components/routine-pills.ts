@@ -38,6 +38,9 @@ export class RqcRoutinePills extends LitElement {
 
     for (const entityId of Object.keys(this.hass.states)) {
       if (entityId.startsWith(prefix) && !entityId.includes('reset_')) {
+        const state = this.hass.states[entityId].state;
+        // Skip unavailable/unknown entities (deleted from Roborock app)
+        if (state === 'unavailable' || state === 'unknown') continue;
         const friendlyName =
           this.hass.states[entityId].attributes.friendly_name ??
           entityId.replace(prefix, '').replace(/_/g, ' ');
@@ -47,15 +50,30 @@ export class RqcRoutinePills extends LitElement {
     return routines;
   }
 
-  private async _handlePresetTap(presetName: string): Promise<void> {
-    await this.hass.callService('roborock_mcp', 'queue_preset', {
-      preset: presetName,
-    });
+  private _getActiveRoutine(): {name: string; type: string} | null {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.active_routine || null;
   }
 
-  private async _handleNativeRoutineTap(entityId: string): Promise<void> {
+  private _handlePresetTap(presetName: string): void {
+    const presets = this._getPresets();
+    const preset = presets.find((p) => p.name === presetName);
+    if (!preset) return;
+    this.dispatchEvent(
+      new CustomEvent('preset-selected', {
+        detail: { name: presetName, steps: preset.steps },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private async _handleNativeRoutineTap(entityId: string, name: string): Promise<void> {
     await this.hass.callService('button', 'press', {
       entity_id: entityId,
+    });
+    await this.hass.callService('roborock_mcp', 'set_active_routine', {
+      name,
     });
   }
 
@@ -74,7 +92,7 @@ export class RqcRoutinePills extends LitElement {
           ${(presets || []).map(
             (preset) => html`
               <button
-                class="routine-pill"
+                class="routine-pill ${this._getActiveRoutine()?.name === preset.name && this._getActiveRoutine()?.type === 'preset' ? 'active' : ''}"
                 @click=${() => this._handlePresetTap(preset.name)}
               >
                 <ha-icon
@@ -88,8 +106,8 @@ export class RqcRoutinePills extends LitElement {
           ${(nativeRoutines || []).map(
             (routine) => html`
               <button
-                class="routine-pill native"
-                @click=${() => this._handleNativeRoutineTap(routine.entityId)}
+                class="routine-pill native ${this._getActiveRoutine()?.name === routine.name && this._getActiveRoutine()?.type === 'native' ? 'active' : ''}"
+                @click=${() => this._handleNativeRoutineTap(routine.entityId, routine.name)}
               >
                 <ha-icon
                   icon="mdi:robot-vacuum"
@@ -167,6 +185,12 @@ export class RqcRoutinePills extends LitElement {
       }
       .routine-pill:active {
         transform: scale(0.95);
+      }
+      .routine-pill.active {
+        border-color: var(--label-badge-green, #43a047);
+        background: color-mix(in srgb, var(--label-badge-green, #43a047) 12%, var(--card-background-color, #fff));
+        color: var(--label-badge-green, #43a047);
+        font-weight: 600;
       }
       .native-badge {
         display: inline-flex;

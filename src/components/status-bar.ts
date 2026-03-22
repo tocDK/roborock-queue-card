@@ -85,6 +85,12 @@ export class RqcStatusBar extends LitElement {
     return error;
   }
 
+  private _getActiveRoutine(): {name: string; type: string} | null {
+    if (!this.config?.queue_sensor || !this.hass) return null;
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.active_routine || null;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -134,6 +140,17 @@ export class RqcStatusBar extends LitElement {
             <span class="status-value">${currentRoom}</span>
           </div>
         ` : nothing}
+
+        ${(() => {
+          const routine = this._getActiveRoutine();
+          return routine ? html`
+            <div class="divider"></div>
+            <div class="status-item">
+              <ha-icon icon="mdi:play-circle" style="--mdc-icon-size: 18px; color: var(--label-badge-green, #43a047);"></ha-icon>
+              <span class="status-value" style="color: var(--label-badge-green, #43a047);">${routine.name}</span>
+            </div>
+          ` : nothing;
+        })()}
 
         <div class="divider"></div>
 
