@@ -85,10 +85,20 @@ export class RoborockQueueProgress extends LitElement {
 
     const totalSteps = steps.length;
     const completedSteps = steps.filter(s => s.status === 'completed').length;
-    const progressPct = queueProgress
-      ? (totalSteps > 0 ? Math.round((queueProgress.total_elapsed_s / (queueProgress.estimated_total_s || queueProgress.total_elapsed_s || 1)) * 100) : 0)
-      : (totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0);
-    const clampedPct = Math.min(progressPct, 99); // never show 100% until actually done
+
+    // Progress based on step count + current step time fraction
+    let progressPct: number;
+    if (totalSteps > 0 && progress?.step_estimated_s) {
+      // Time-based: completed steps + fraction of current step
+      const stepFraction = Math.min(progress.step_elapsed_s / progress.step_estimated_s, 1);
+      progressPct = Math.round(((completedSteps + stepFraction) / totalSteps) * 100);
+    } else if (totalSteps > 0) {
+      // No time estimate: just step count
+      progressPct = Math.round((completedSteps / totalSteps) * 100);
+    } else {
+      progressPct = 0;
+    }
+    const clampedPct = Math.min(progressPct, 99);
 
     return html`
       <ha-card>
