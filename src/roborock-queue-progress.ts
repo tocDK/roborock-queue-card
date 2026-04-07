@@ -86,14 +86,18 @@ export class RoborockQueueProgress extends LitElement {
     const totalSteps = steps.length;
     const completedSteps = steps.filter(s => s.status === 'completed').length;
 
-    // Progress based on step count + current step time fraction
+    // Progress: prefer queue-level time estimate, then step-level, then step count
     let progressPct: number;
-    if (totalSteps > 0 && progress?.step_estimated_s) {
-      // Time-based: completed steps + fraction of current step
+    if (totalSteps > 0 && queueProgress?.estimated_total_s) {
+      // Queue-level time-based: elapsed / total estimated
+      const elapsed = queueProgress.total_elapsed_s || 0;
+      progressPct = Math.round((elapsed / queueProgress.estimated_total_s) * 100);
+    } else if (totalSteps > 0 && progress?.step_estimated_s) {
+      // Step-level: completed steps + fraction of current step
       const stepFraction = Math.min(progress.step_elapsed_s / progress.step_estimated_s, 1);
       progressPct = Math.round(((completedSteps + stepFraction) / totalSteps) * 100);
     } else if (totalSteps > 0) {
-      // No time estimate: just step count
+      // No estimates: step count only
       progressPct = Math.round((completedSteps / totalSteps) * 100);
     } else {
       progressPct = 0;
@@ -105,22 +109,28 @@ export class RoborockQueueProgress extends LitElement {
         <div class="header">${t('progress.header') || 'STØVSUGER'}</div>
 
         <!-- Current step + progress -->
-        ${progress ? html`
-          <div class="current-step">
-            <div class="step-info">
-              <ha-icon .icon=${MODE_ICONS[progress.step_mode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 20px;"></ha-icon>
-              <span class="step-label">${progress.step_room} · ${getModeLabel(progress.step_mode)}</span>
+        ${(() => {
+          const activeStep = progress
+            ? { room: progress.step_room, mode: progress.step_mode }
+            : steps.find(s => s.status === 'in_progress');
+          return activeStep ? html`
+            <div class="current-step">
+              <div class="step-info">
+                <ha-icon .icon=${MODE_ICONS[activeStep.mode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 20px;"></ha-icon>
+                <span class="step-label">${activeStep.room} · ${getModeLabel(activeStep.mode)}</span>
+              </div>
+              <span class="step-pct">${clampedPct}%</span>
             </div>
-            <span class="step-pct">${clampedPct}%</span>
-          </div>
-        ` : html`
-          <div class="current-step">
-            <div class="step-info">
-              <ha-icon icon="mdi:robot-vacuum" style="--mdc-icon-size: 20px;"></ha-icon>
-              <span class="step-label">${paused ? t('status.paused') : t('status.cleaning')}</span>
+          ` : html`
+            <div class="current-step">
+              <div class="step-info">
+                <ha-icon icon="mdi:robot-vacuum" style="--mdc-icon-size: 20px;"></ha-icon>
+                <span class="step-label">${paused ? t('status.paused') : t('status.cleaning')}</span>
+              </div>
+              <span class="step-pct">${clampedPct}%</span>
             </div>
-          </div>
-        `}
+          `;
+        })()}
 
         <div class="progress-bar">
           <div class="progress-fill ${paused ? 'paused' : ''}" style="width: ${clampedPct}%"></div>
