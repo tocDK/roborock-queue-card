@@ -112,14 +112,14 @@ export class RqcQueueControls extends LitElement {
     const stepProgress = this._getProgress();
     const queueProgress = this._getQueueProgress();
 
-    // Progress: completed steps + time fraction of current step
+    // Progress = elapsed / (elapsed + remaining)
     let progressPct: number;
-    if (totalSteps > 0) {
-      let stepFraction = 0;
-      if (stepProgress?.step_estimated_s) {
-        stepFraction = Math.min(stepProgress.step_elapsed_s / stepProgress.step_estimated_s, 1);
-      }
-      progressPct = Math.round(((completedSteps + stepFraction) / totalSteps) * 100);
+    const elapsed = queueProgress?.total_elapsed_s || 0;
+    const remaining = queueProgress?.estimated_remaining_s;
+    if (remaining != null && (elapsed + remaining) > 0) {
+      progressPct = Math.round((elapsed / (elapsed + remaining)) * 100);
+    } else if (totalSteps > 0) {
+      progressPct = Math.round((completedSteps / totalSteps) * 100);
     } else {
       progressPct = 0;
     }

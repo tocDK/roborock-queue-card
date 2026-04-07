@@ -86,14 +86,14 @@ export class RoborockQueueProgress extends LitElement {
     const totalSteps = steps.length;
     const completedSteps = steps.filter(s => s.status === 'completed').length;
 
-    // Progress: completed steps + fraction of current step (time-based if available)
+    // Progress = elapsed / (elapsed + remaining)
     let progressPct: number;
-    if (totalSteps > 0) {
-      let stepFraction = 0;
-      if (progress?.step_estimated_s) {
-        stepFraction = Math.min(progress.step_elapsed_s / progress.step_estimated_s, 1);
-      }
-      progressPct = Math.round(((completedSteps + stepFraction) / totalSteps) * 100);
+    const elapsed = queueProgress?.total_elapsed_s || 0;
+    const remaining = queueProgress?.estimated_remaining_s;
+    if (remaining != null && (elapsed + remaining) > 0) {
+      progressPct = Math.round((elapsed / (elapsed + remaining)) * 100);
+    } else if (totalSteps > 0) {
+      progressPct = Math.round((completedSteps / totalSteps) * 100);
     } else {
       progressPct = 0;
     }
