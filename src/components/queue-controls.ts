@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, QueueStep } from '../types';
+import { RoborockQueueCardConfig, QueueStep, StepProgress, QueueProgress } from '../types';
 import { getModeLabel, MODE_ICONS } from '../const';
 import { t } from '../localize';
 
@@ -64,6 +64,42 @@ export class RqcQueueControls extends LitElement {
     await this.hass.callService('roborock_mcp', 'queue_cancel', {});
   }
 
+  private _getProgress(): StepProgress | null {
+    if (!this.config?.queue_sensor || !this.hass) return null;
+    const sensorState = this.hass.states[this.config.queue_sensor];
+    return sensorState?.attributes?.progress || null;
+  }
+
+  private _getQueueProgress(): QueueProgress | null {
+    if (!this.config?.queue_sensor || !this.hass) return null;
+    const sensorState = this.hass.states[this.config.queue_sensor];
+    return sensorState?.attributes?.queue_progress || null;
+  }
+
+  private _formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  private _formatMinutes(seconds: number): string {
+    return `${Math.round(seconds / 60)}`;
+  }
+
+  private _getCleanCount(stepProgress: StepProgress): number {
+    if (!this.config?.queue_sensor || !this.hass) return 0;
+    const sensorState = this.hass.states[this.config.queue_sensor];
+    const history = sensorState?.attributes?.room_history || {};
+    const roomData = history[stepProgress.step_room];
+    if (!roomData) return 0;
+    for (const [key, entry] of Object.entries(roomData)) {
+      if (key.startsWith(stepProgress.step_mode + ':') && (entry as any)?.clean_count) {
+        return (entry as any).clean_count;
+      }
+    }
+    return 0;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -75,6 +111,8 @@ export class RqcQueueControls extends LitElement {
     const progressPct =
       totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
     const currentStep = currentIndex >= 0 ? this.steps[currentIndex] : null;
+    const stepProgress = this._getProgress();
+    const queueProgress = this._getQueueProgress();
 
     return html`
       <div class="controls-panel">
@@ -89,20 +127,85 @@ export class RqcQueueControls extends LitElement {
           </div>
         ` : nothing}
 
-        <!-- Progress -->
-        <div class="progress-section">
-          <div class="progress-info">
-            <span>
-              ${currentStep
-                ? `${t('controls.step')} ${currentIndex + 1} ${t('controls.of')} ${totalSteps} — ${currentStep.room}`
-                : t('rooms.done')}
-            </span>
-            <span class="progress-pct">${progressPct}%</span>
+        <!-- Queue Progress Summary -->
+        ${queueProgress ? html`
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">
+                ${t('controls.step')} ${(queueProgress.completed_steps || 0) + 1} ${t('controls.of')} ${queueProgress.total_steps}
+                ${currentStep ? ` — ${currentStep.room}` : ''}
+              </span>
+              ${queueProgress.estimated_remaining_s != null ? html`
+                <span class="progress-eta">${t('progress.eta').replace('{0}', this._formatMinutes(queueProgress.estimated_remaining_s))}</span>
+              ` : nothing}
+            </div>
+
+            <!-- Overall progress bar (step-count based) -->
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${progressPct}%"></div>
+            </div>
+
+            <!-- Battery summary -->
+            <div class="battery-summary">
+              <div class="battery-stat">
+                <ha-icon icon="mdi:battery-minus" style="--mdc-icon-size: 16px;"></ha-icon>
+                <span>${queueProgress.total_battery_used}% ${t('progress.battery_used')}</span>
+              </div>
+              ${queueProgress.estimated_total_battery != null ? html`
+                <div class="battery-stat">
+                  <ha-icon icon="mdi:battery-clock-outline" style="--mdc-icon-size: 16px;"></ha-icon>
+                  <span>~${queueProgress.estimated_total_battery}% ${t('progress.battery_total')}
+                    ${queueProgress.steps_without_estimate > 0
+                      ? html`<span class="unknown-badge">${t('progress.unknown_steps').replace('{0}', String(queueProgress.steps_without_estimate))}</span>`
+                      : nothing}
+                  </span>
+                </div>
+              ` : nothing}
+            </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${progressPct}%"></div>
+        ` : html`
+          <!-- Fallback: basic progress when no queue_progress data -->
+          <div class="progress-section">
+            <div class="progress-info">
+              <span>${currentStep ? `${t('controls.step')} ${currentIndex + 1} ${t('controls.of')} ${totalSteps} — ${currentStep.room}` : t('rooms.done')}</span>
+              <span class="progress-pct">${progressPct}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${progressPct}%"></div>
+            </div>
           </div>
-        </div>
+        `}
+
+        <!-- Current Step Detail -->
+        ${stepProgress ? html`
+          <div class="step-detail">
+            <div class="step-detail-header">
+              <ha-icon .icon=${MODE_ICONS[stepProgress.step_mode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 18px;"></ha-icon>
+              <span class="step-detail-title">${stepProgress.step_room} · ${getModeLabel(stepProgress.step_mode)}</span>
+            </div>
+
+            ${stepProgress.step_estimated_s != null ? html`
+              <!-- Time-based step progress bar -->
+              <div class="step-progress-bar">
+                <div class="step-progress-fill" style="width: ${Math.min(100, Math.round((stepProgress.step_elapsed_s / stepProgress.step_estimated_s) * 100))}%"></div>
+              </div>
+              <div class="step-stats">
+                <span>${t('progress.battery')}: ${stepProgress.battery_used}% / ~${stepProgress.step_estimated_battery}%</span>
+                <span>${this._formatTime(stepProgress.step_elapsed_s)} / ~${this._formatTime(stepProgress.step_estimated_s)}</span>
+              </div>
+            ` : html`
+              <!-- No estimate yet — learning mode -->
+              <div class="step-learning">
+                <ha-icon icon="mdi:school-outline" style="--mdc-icon-size: 16px;"></ha-icon>
+                <span>${t('progress.learning').replace('{0}', String(this._getCleanCount(stepProgress)))}</span>
+              </div>
+              <div class="step-stats">
+                <span>${t('progress.battery')}: ${stepProgress.battery_used}%</span>
+                <span>${this._formatTime(stepProgress.step_elapsed_s)}</span>
+              </div>
+            `}
+          </div>
+        ` : nothing}
 
         <!-- Step list -->
         <div class="step-list">
@@ -296,6 +399,81 @@ export class RqcQueueControls extends LitElement {
       .btn-danger {
         background: color-mix(in srgb, var(--error-color, #ef5350) 12%, var(--card-background-color, #fff));
         color: var(--error-color, #ef5350);
+      }
+      .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .progress-label {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+      }
+      .progress-eta {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--primary-color, #2196f3);
+      }
+      .battery-summary {
+        display: flex;
+        gap: 16px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .battery-stat {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .unknown-badge {
+        font-size: 11px;
+        opacity: 0.7;
+        font-style: italic;
+      }
+      .step-detail {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+      }
+      .step-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .step-detail-title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .step-progress-bar {
+        height: 6px;
+        background: var(--secondary-background-color);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 6px;
+      }
+      .step-progress-fill {
+        height: 100%;
+        background: var(--primary-color, #2196f3);
+        border-radius: 3px;
+        transition: width 1s ease;
+      }
+      .step-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .step-learning {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-style: italic;
+        margin-bottom: 6px;
       }
     `;
   }

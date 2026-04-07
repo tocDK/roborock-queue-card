@@ -177,6 +177,19 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.queue_status': 'Kø status',
     'diagnostics.current_step': 'Nuværende trin',
     'diagnostics.pause_reason': 'Pause årsag',
+
+    // Progress tracking
+    'progress.battery': 'Batteri',
+    'progress.battery_used': 'brugt',
+    'progress.battery_total': 'total estimeret',
+    'progress.unknown_steps': '+{0} ukendt',
+    'progress.time_remaining': 'resterende',
+    'progress.learning': 'Lærer... (rengøring {0}/3)',
+    'progress.step_detail': '{0} · {1}',
+    'progress.elapsed': 'Forløbet',
+    'progress.estimated': 'Estimeret',
+    'progress.minutes': 'min',
+    'progress.eta': 'ca. {0} min tilbage',
   },
   en: {
     'status.battery': 'Battery',
@@ -342,6 +355,19 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.queue_status': 'Queue status',
     'diagnostics.current_step': 'Current step',
     'diagnostics.pause_reason': 'Pause reason',
+
+    // Progress tracking
+    'progress.battery': 'Battery',
+    'progress.battery_used': 'used',
+    'progress.battery_total': 'total estimated',
+    'progress.unknown_steps': '+{0} unknown',
+    'progress.time_remaining': 'remaining',
+    'progress.learning': 'Learning... (clean {0}/3)',
+    'progress.step_detail': '{0} · {1}',
+    'progress.elapsed': 'Elapsed',
+    'progress.estimated': 'Estimated',
+    'progress.minutes': 'min',
+    'progress.eta': 'approx. {0} min remaining',
   },
 };
 
