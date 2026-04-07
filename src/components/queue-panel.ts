@@ -168,22 +168,66 @@ export class RqcQueuePanel extends LitElement {
     return queueState?.attributes?.room_history || {};
   }
 
-  private _getEstimatedTime(): number | null {
+  /**
+   * Find history entry for a room+mode combo.
+   * History keys are now composite: "vacuum:balanced:off:2", "mop:off:high:1".
+   * We find the best match by mode prefix. If multiple entries exist for the
+   * same mode (different settings), pick the one with the highest clean_count.
+   */
+  private _findHistoryEntry(room: string, mode: string): any | null {
     const history = this._getRoomHistory();
+    const roomData = history[room];
+    if (!roomData) return null;
+
+    // Try plain key first (backwards compat with v1 data that hasn't migrated yet)
+    if (roomData[mode]?.avg_duration_s) return roomData[mode];
+
+    // Search composite keys by mode prefix
+    let best: any = null;
+    for (const [key, entry] of Object.entries(roomData)) {
+      if (key.startsWith(mode + ':') && (entry as any)?.avg_duration_s) {
+        if (!best || ((entry as any).clean_count || 0) > (best.clean_count || 0)) {
+          best = entry;
+        }
+      }
+    }
+    return best;
+  }
+
+  private _getEstimatedTime(): number | null {
     let total = 0;
     let hasData = false;
 
     for (const item of this.queueItems) {
-      const roomData = history[item.room];
-      const modeData = roomData?.[item.mode];
-      if (modeData?.avg_duration_s) {
-        total += modeData.avg_duration_s;
-        hasData = true;
-      } else {
-        total += (item.mode === 'deep' ? 600 : 300);
+      const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+      for (const m of modes) {
+        const entry = this._findHistoryEntry(item.room, m);
+        if (entry?.avg_duration_s) {
+          total += entry.avg_duration_s;
+          hasData = true;
+        } else {
+          total += 300;
+        }
       }
     }
     return hasData ? Math.round(total / 60) : null;
+  }
+
+  private _getEstimatedBattery(): number | null {
+    let total = 0;
+    let hasData = false;
+
+    for (const item of this.queueItems) {
+      const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+      for (const m of modes) {
+        const entry = this._findHistoryEntry(item.room, m);
+        if (entry?.avg_battery_pct && entry?.clean_count >= 3) {
+          total += entry.avg_battery_pct;
+          hasData = true;
+        }
+      }
+    }
+    return hasData ? Math.round(total) : null;
   }
 
   private _getRoomIcon(roomName: string): string {
@@ -306,12 +350,29 @@ export class RqcQueuePanel extends LitElement {
           ${this.queueItems.length > 0
             ? html`
                 <div class="estimated-time">
-                  <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
                   ${(() => {
-                    const est = this._getEstimatedTime();
-                    return est !== null
-                      ? `${t('queue.estimate')}: ${t('queue.estimate_minutes').replace('{0}', String(est))}`
-                      : `${t('queue.estimate')}: ${t('queue.estimate_no_data')}`;
+                    const estTime = this._getEstimatedTime();
+                    const estBattery = this._getEstimatedBattery();
+                    if (estTime === null && estBattery === null) {
+                      return html`
+                        <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
+                        ${t('queue.estimate')}: ${t('queue.estimate_no_data')}
+                      `;
+                    }
+                    return html`
+                      ${estTime !== null ? html`
+                        <span class="est-item">
+                          <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
+                          ${t('queue.estimate_minutes').replace('{0}', String(estTime))}
+                        </span>
+                      ` : nothing}
+                      ${estBattery !== null ? html`
+                        <span class="est-item">
+                          <ha-icon icon="mdi:battery-minus" style="--mdc-icon-size: 14px;"></ha-icon>
+                          ~${estBattery}%
+                        </span>
+                      ` : nothing}
+                    `;
                   })()}
                 </div>
               `
@@ -347,10 +408,10 @@ export class RqcQueuePanel extends LitElement {
   private _getLastRunTime(): string | null {
     const lastRun = this._getLastRun();
     if (!lastRun) return null;
-    const history = this._getRoomHistory();
     let latest: string | null = null;
     for (const step of lastRun.filter((s) => s.status === 'completed')) {
-      const ts = history[step.room]?.[step.mode]?.last_cleaned;
+      const entry = this._findHistoryEntry(step.room, step.mode);
+      const ts = entry?.last_cleaned;
       if (ts && (!latest || ts > latest)) latest = ts;
     }
     if (!latest) return null;
@@ -359,8 +420,8 @@ export class RqcQueuePanel extends LitElement {
   }
 
   private _getStepDuration(room: string, mode: string): string | null {
-    const history = this._getRoomHistory();
-    const dur = history[room]?.[mode]?.last_duration_s;
+    const entry = this._findHistoryEntry(room, mode);
+    const dur = entry?.last_duration_s;
     if (!dur) return null;
     return `${Math.round(dur / 60)} min`;
   }
@@ -820,11 +881,17 @@ export class RqcQueuePanel extends LitElement {
       .estimated-time {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 12px;
         font-size: 13px;
         color: var(--secondary-text-color);
         margin-bottom: 8px;
         justify-content: center;
+        flex-wrap: wrap;
+      }
+      .est-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
       .panel-controls {
         padding: 16px 20px;
