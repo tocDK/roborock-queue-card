@@ -136,17 +136,18 @@ export class RoborockQueueProgress extends LitElement {
 
           <div class="stat-row">
             <ha-icon icon="mdi:format-list-checks" style="--mdc-icon-size: 18px;"></ha-icon>
-            <span class="stat-label">${t('progress.rooms') || 'Rum'}</span>
+            <span class="stat-label">${t('controls.step')}</span>
             <span class="stat-value">${completedSteps + 1} ${t('controls.of')} ${totalSteps}</span>
           </div>
         </div>
 
-        <!-- Room chips -->
+        <!-- Room chips with mode -->
         <div class="room-chips">
           ${steps.map(step => html`
             <span class="chip ${step.status}">
               ${step.status === 'completed' ? '✓' : step.status === 'in_progress' ? '▶' : '○'}
               ${step.room}
+              <ha-icon .icon=${MODE_ICONS[step.mode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 12px;"></ha-icon>
             </span>
           `)}
         </div>
