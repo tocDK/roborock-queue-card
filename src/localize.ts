@@ -179,6 +179,8 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.pause_reason': 'Pause årsag',
 
     // Progress tracking
+    'progress.header': 'STØVSUGER',
+    'progress.rooms': 'Rum',
     'progress.battery': 'Batteri',
     'progress.battery_used': 'brugt',
     'progress.battery_total': 'total estimeret',
@@ -357,6 +359,8 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.pause_reason': 'Pause reason',
 
     // Progress tracking
+    'progress.header': 'VACUUM',
+    'progress.rooms': 'Rooms',
     'progress.battery': 'Battery',
     'progress.battery_used': 'used',
     'progress.battery_total': 'total estimated',

@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, CleaningMode, QueueStep, FanSpeed, WaterLevel } from './types';
+import { RoborockQueueCardConfig, CleaningMode, QueueStep, FanSpeed, WaterLevel, Passes } from './types';
 import { CARD_VERSION } from './const';
 import { setLanguage } from './localize';
 
@@ -13,6 +13,7 @@ import './components/queue-panel';
 import './components/queue-controls';
 import './components/maintenance-panel';
 import './components/diagnostics-panel';
+import './roborock-queue-progress';
 
 console.info(
   `%c ROBOROCK-QUEUE-CARD %c v${CARD_VERSION} `,
@@ -36,6 +37,7 @@ export class RoborockQueueCard extends LitElement {
   @state() private _defaultMode: CleaningMode = 'vacuum';
   @state() private _defaultFanSpeed: FanSpeed = 'balanced';
   @state() private _defaultWaterLevel: WaterLevel = 'medium';
+  @state() private _defaultPasses: Passes = 2;
 
   public setConfig(config: RoborockQueueCardConfig): void {
     if (!config.entity) {
@@ -121,6 +123,10 @@ export class RoborockQueueCard extends LitElement {
     this._defaultWaterLevel = e.detail.waterLevel as WaterLevel;
   }
 
+  private _handleDefaultPassesChanged(e: CustomEvent): void {
+    this._defaultPasses = e.detail.passes as Passes;
+  }
+
   private _handleItemSettingChanged(e: CustomEvent): void {
     const { index, setting, value } = e.detail;
     const items = [...this._queueItems];
@@ -144,6 +150,22 @@ export class RoborockQueueCard extends LitElement {
   private _handleQueueCleared(): void {
     this._selectedRooms = [];
     this._queueItems = [];
+  }
+
+  private _handlePresetSelected(e: CustomEvent): void {
+    const { steps } = e.detail;
+    // Clear current queue and populate with preset steps
+    const rooms: string[] = [];
+    const items: QueueItem[] = [];
+    for (const step of steps) {
+      rooms.push(step.room);
+      items.push({
+        room: step.room,
+        mode: step.mode as CleaningMode,
+      });
+    }
+    this._selectedRooms = rooms;
+    this._queueItems = items;
   }
 
   protected render() {
@@ -178,6 +200,7 @@ export class RoborockQueueCard extends LitElement {
                 <rqc-routine-pills
                   .hass=${this.hass}
                   .config=${this._config}
+                  @preset-selected=${this._handlePresetSelected}
                 ></rqc-routine-pills>
               </div>
             `
@@ -192,6 +215,10 @@ export class RoborockQueueCard extends LitElement {
               .config=${this._config}
               .selectedRooms=${this._selectedRooms}
               .queueSteps=${queueSteps}
+              .defaultMode=${this._defaultMode}
+              .defaultFanSpeed=${this._defaultFanSpeed}
+              .defaultWaterLevel=${this._defaultWaterLevel}
+              .defaultPasses=${this._defaultPasses}
               @room-selected=${this._handleRoomSelected}
             ></rqc-room-grid>
           </div>
@@ -215,11 +242,13 @@ export class RoborockQueueCard extends LitElement {
                     .defaultMode=${this._defaultMode}
                     .defaultFanSpeed=${this._defaultFanSpeed}
                     .defaultWaterLevel=${this._defaultWaterLevel}
+                    .defaultPasses=${this._defaultPasses}
                     .queueItems=${this._queueItems}
                     .roomFloorTypes=${this._getRoomFloorTypes()}
                     @mode-changed=${this._handleModeChanged}
                     @default-fan-speed-changed=${this._handleDefaultFanSpeedChanged}
                     @default-water-level-changed=${this._handleDefaultWaterLevelChanged}
+                    @default-passes-changed=${this._handleDefaultPassesChanged}
                     @item-mode-changed=${this._handleItemModeChanged}
                     @item-setting-changed=${this._handleItemSettingChanged}
                     @room-removed=${this._handleRoomRemoved}
