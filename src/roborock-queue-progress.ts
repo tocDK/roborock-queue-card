@@ -86,19 +86,14 @@ export class RoborockQueueProgress extends LitElement {
     const totalSteps = steps.length;
     const completedSteps = steps.filter(s => s.status === 'completed').length;
 
-    // Progress: prefer queue-level time estimate, then step-level, then step count
+    // Progress: completed steps + fraction of current step (time-based if available)
     let progressPct: number;
-    if (totalSteps > 0 && queueProgress?.estimated_total_s) {
-      // Queue-level time-based: elapsed / total estimated
-      const elapsed = queueProgress.total_elapsed_s || 0;
-      progressPct = Math.round((elapsed / queueProgress.estimated_total_s) * 100);
-    } else if (totalSteps > 0 && progress?.step_estimated_s) {
-      // Step-level: completed steps + fraction of current step
-      const stepFraction = Math.min(progress.step_elapsed_s / progress.step_estimated_s, 1);
+    if (totalSteps > 0) {
+      let stepFraction = 0;
+      if (progress?.step_estimated_s) {
+        stepFraction = Math.min(progress.step_elapsed_s / progress.step_estimated_s, 1);
+      }
       progressPct = Math.round(((completedSteps + stepFraction) / totalSteps) * 100);
-    } else if (totalSteps > 0) {
-      // No estimates: step count only
-      progressPct = Math.round((completedSteps / totalSteps) * 100);
     } else {
       progressPct = 0;
     }
