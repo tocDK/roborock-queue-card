@@ -1,6 +1,6 @@
 import { t } from './localize';
 
-export const CARD_VERSION = '0.4.2';
+export const CARD_VERSION = '0.4.3';
 
 export function getModeLabel(mode: string): string {
   return t(`mode.${mode}`);

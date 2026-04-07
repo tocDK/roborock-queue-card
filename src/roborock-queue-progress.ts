@@ -101,7 +101,10 @@ export class RoborockQueueProgress extends LitElement {
 
     return html`
       <ha-card>
-        <div class="header">${t('progress.header') || 'STØVSUGER'}</div>
+        <div class="header">
+          <span>${t('progress.header') || 'STØVSUGER'}</span>
+          <span class="version">v${CARD_VERSION}</span>
+        </div>
 
         <!-- Current step + progress -->
         ${(() => {
@@ -185,6 +188,9 @@ export class RoborockQueueProgress extends LitElement {
         padding: 16px 20px;
       }
       .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.5px;
@@ -272,6 +278,10 @@ export class RoborockQueueProgress extends LitElement {
         background: color-mix(in srgb, var(--primary-color, #2196f3) 15%, var(--card-background-color, #fff));
         color: var(--primary-color, #2196f3);
         font-weight: 600;
+      }
+      .version {
+        font-weight: 400;
+        opacity: 0.5;
       }
       .pause-btn {
         width: 100%;
