@@ -25,11 +25,17 @@ const translations: Record<string, Record<string, string>> = {
 
     // Routines
     'routines.title': 'Rutiner',
+    'routines.running': 'Kører',
 
     // Room grid
     'rooms.empty': 'Ingen rum tilgængelige',
     'rooms.cleaning': 'Rengør...',
     'rooms.done': 'Færdig',
+    'rooms.ago_minutes': '{0}m siden',
+    'rooms.ago_hours': '{0}t siden',
+    'rooms.ago_days': '{0}d siden',
+    'rooms.yesterday': 'I går',
+    'rooms.today': 'I dag',
 
     // Queue panel
     'queue.title': 'Rengøringskø',
@@ -39,6 +45,9 @@ const translations: Record<string, Record<string, string>> = {
     'queue.clear': 'Ryd valg',
     'queue.estimate_no_data': 'Ingen data endnu',
     'queue.estimate': 'Estimeret',
+    'queue.last_run_title': 'Sidste rengøring',
+    'queue.last_run_finished': 'Afsluttet kl.',
+    'queue.estimate_minutes': 'ca. {0} min',
 
     // Modes
     'mode.vacuum': 'Støvsug',
@@ -65,8 +74,8 @@ const translations: Record<string, Record<string, string>> = {
     'maintenance.main_brush': 'Hovedbørste',
     'maintenance.side_brush': 'Sidebørste',
     'maintenance.filter': 'Filter',
-    'maintenance.sensors': 'Sensorer',
-    'maintenance.dock_strainer': 'Dock si',
+    'maintenance.sensors': 'Sensorer (tør af med klud)',
+    'maintenance.dock_strainer': 'Dock vandfilter',
     'maintenance.overdue': 'Udskiftning påkrævet!',
     'maintenance.hours_left': 'timer tilbage',
     'maintenance.mop_attached': 'Moppe monteret',
@@ -87,7 +96,7 @@ const translations: Record<string, Record<string, string>> = {
     'dock.error': 'Dock fejl',
     'dock.mop_drying': 'Moppe tørring',
     'dock.mop_drying_time': 'Tørretid',
-    'dock.strainer': 'Dock si',
+    'dock.strainer': 'Dock vandfilter',
     'dock.ok': 'OK',
     'dock.problem': 'Problem',
     'dock.running': 'Kører',
@@ -103,6 +112,7 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Lav',
     'settings.medium': 'Medium',
     'settings.high': 'Høj',
+    'settings.passes': 'Antal gange',
 
     // Pause reasons
     'pause_reason.user_paused': 'Sat på pause af bruger',
@@ -167,6 +177,19 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.queue_status': 'Kø status',
     'diagnostics.current_step': 'Nuværende trin',
     'diagnostics.pause_reason': 'Pause årsag',
+
+    // Progress tracking
+    'progress.battery': 'Batteri',
+    'progress.battery_used': 'brugt',
+    'progress.battery_total': 'total estimeret',
+    'progress.unknown_steps': '+{0} ukendt',
+    'progress.time_remaining': 'resterende',
+    'progress.learning': 'Lærer... (rengøring {0}/3)',
+    'progress.step_detail': '{0} · {1}',
+    'progress.elapsed': 'Forløbet',
+    'progress.estimated': 'Estimeret',
+    'progress.minutes': 'min',
+    'progress.eta': 'ca. {0} min tilbage',
   },
   en: {
     'status.battery': 'Battery',
@@ -186,10 +209,16 @@ const translations: Record<string, Record<string, string>> = {
     'common.off': 'Off',
 
     'routines.title': 'Routines',
+    'routines.running': 'Running',
 
     'rooms.empty': 'No rooms available',
     'rooms.cleaning': 'Cleaning...',
     'rooms.done': 'Done',
+    'rooms.ago_minutes': '{0}m ago',
+    'rooms.ago_hours': '{0}h ago',
+    'rooms.ago_days': '{0}d ago',
+    'rooms.yesterday': 'Yesterday',
+    'rooms.today': 'Today',
 
     'queue.title': 'Cleaning Queue',
     'queue.default_mode': 'Default mode for new rooms',
@@ -198,6 +227,9 @@ const translations: Record<string, Record<string, string>> = {
     'queue.clear': 'Clear selection',
     'queue.estimate_no_data': 'No data yet',
     'queue.estimate': 'Estimated',
+    'queue.last_run_title': 'Last cleaning',
+    'queue.last_run_finished': 'Finished at',
+    'queue.estimate_minutes': 'approx. {0} min',
 
     'mode.vacuum': 'Vacuum',
     'mode.mop': 'Mop',
@@ -221,8 +253,8 @@ const translations: Record<string, Record<string, string>> = {
     'maintenance.main_brush': 'Main brush',
     'maintenance.side_brush': 'Side brush',
     'maintenance.filter': 'Filter',
-    'maintenance.sensors': 'Sensors',
-    'maintenance.dock_strainer': 'Dock strainer',
+    'maintenance.sensors': 'Sensors (wipe with cloth)',
+    'maintenance.dock_strainer': 'Dock water filter',
     'maintenance.overdue': 'Replacement needed!',
     'maintenance.hours_left': 'hours left',
     'maintenance.mop_attached': 'Mop attached',
@@ -242,7 +274,7 @@ const translations: Record<string, Record<string, string>> = {
     'dock.error': 'Dock error',
     'dock.mop_drying': 'Mop drying',
     'dock.mop_drying_time': 'Drying time',
-    'dock.strainer': 'Dock strainer',
+    'dock.strainer': 'Dock water filter',
     'dock.ok': 'OK',
     'dock.problem': 'Problem',
     'dock.running': 'Running',
@@ -258,6 +290,7 @@ const translations: Record<string, Record<string, string>> = {
     'settings.low': 'Low',
     'settings.medium': 'Medium',
     'settings.high': 'High',
+    'settings.passes': 'Passes',
 
     // Pause reasons
     'pause_reason.user_paused': 'Paused by user',
@@ -322,6 +355,19 @@ const translations: Record<string, Record<string, string>> = {
     'diagnostics.queue_status': 'Queue status',
     'diagnostics.current_step': 'Current step',
     'diagnostics.pause_reason': 'Pause reason',
+
+    // Progress tracking
+    'progress.battery': 'Battery',
+    'progress.battery_used': 'used',
+    'progress.battery_total': 'total estimated',
+    'progress.unknown_steps': '+{0} unknown',
+    'progress.time_remaining': 'remaining',
+    'progress.learning': 'Learning... (clean {0}/3)',
+    'progress.step_detail': '{0} · {1}',
+    'progress.elapsed': 'Elapsed',
+    'progress.estimated': 'Estimated',
+    'progress.minutes': 'min',
+    'progress.eta': 'approx. {0} min remaining',
   },
 };
 

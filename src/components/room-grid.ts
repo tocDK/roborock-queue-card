@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, AvailableRoom, QueueStep } from '../types';
+import { RoborockQueueCardConfig, AvailableRoom, QueueStep, CleaningMode, FanSpeed, WaterLevel, Passes } from '../types';
 import { guessRoomIcon } from '../const';
 import { t } from '../localize';
 
@@ -11,6 +11,10 @@ export class RqcRoomGrid extends LitElement {
   @property({ attribute: false }) public config!: RoborockQueueCardConfig;
   @property({ type: Array }) public selectedRooms: string[] = [];
   @property({ type: Array }) public queueSteps: QueueStep[] = [];
+  @property({ type: String }) public defaultMode: CleaningMode = 'vacuum';
+  @property({ type: String }) public defaultFanSpeed: FanSpeed = 'balanced';
+  @property({ type: String }) public defaultWaterLevel: WaterLevel = 'medium';
+  @property({ type: Number }) public defaultPasses: Passes = 2;
 
   private _getAvailableRooms(): AvailableRoom[] {
     const queueState = this.hass.states[this.config.queue_sensor];
@@ -54,6 +58,9 @@ export class RqcRoomGrid extends LitElement {
   }
 
   private _isRoomDone(roomName: string): boolean {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    const state = queueState?.state ?? 'idle';
+    if (state === 'idle') return false;
     return this.queueSteps.some(
       (s) => s.room === roomName && s.status === 'completed'
     );
@@ -69,9 +76,77 @@ export class RqcRoomGrid extends LitElement {
     );
   }
 
-  private _getLastCleaned(_roomName: string): string | null {
-    // Could be extended with a sensor attribute in the future
-    return null;
+  private _getRoomHistory(): Record<string, Record<string, any>> {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.room_history || {};
+  }
+
+  private _getLastCleaned(roomName: string): string | null {
+    const history = this._getRoomHistory();
+    const roomData = history[roomName];
+    if (!roomData) return null;
+
+    let latest: string | null = null;
+    for (const modeData of Object.values(roomData) as any[]) {
+      if (modeData?.last_cleaned) {
+        if (!latest || modeData.last_cleaned > latest) {
+          latest = modeData.last_cleaned;
+        }
+      }
+    }
+    if (!latest) return null;
+
+    return this._formatRelativeTime(latest);
+  }
+
+  private _getRoomEstimate(roomName: string): { time: number; battery: number | null } | null {
+    const history = this._getRoomHistory();
+    const roomData = history[roomName];
+    if (!roomData) return null;
+
+    const modes = this.defaultMode === 'deep' ? ['vacuum', 'mop'] : [this.defaultMode];
+    let totalTime = 0;
+    let totalBattery = 0;
+    let hasBattery = false;
+    let hasAny = false;
+
+    for (const mode of modes) {
+      // Build the settings key to find exact match
+      const fanSpeed = mode === 'mop' ? 'off' : this.defaultFanSpeed;
+      const waterLevel = mode === 'vacuum' ? 'off' : this.defaultWaterLevel;
+      const settingsKey = `${mode}:${fanSpeed}:${waterLevel}:${this.defaultPasses}`;
+
+      const entry = roomData[settingsKey];
+      if (entry && entry.clean_count >= 3 && entry.avg_duration_s) {
+        totalTime += entry.avg_duration_s;
+        hasAny = true;
+        if (entry.avg_battery_pct != null && (entry.battery_clean_count || 0) >= 3) {
+          totalBattery += entry.avg_battery_pct;
+          hasBattery = true;
+        }
+      }
+    }
+
+    if (!hasAny) return null;
+    return {
+      time: Math.round(totalTime / 60),
+      battery: hasBattery ? Math.round(totalBattery) : null,
+    };
+  }
+
+  private _formatRelativeTime(isoString: string): string {
+    const now = new Date();
+    const then = new Date(isoString);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return t('rooms.today');
+    if (diffMin < 60) return t('rooms.ago_minutes').replace('{0}', String(diffMin));
+    if (diffHours < 24) return t('rooms.ago_hours').replace('{0}', String(diffHours));
+    if (diffDays === 1) return t('rooms.yesterday');
+    return t('rooms.ago_days').replace('{0}', String(diffDays));
   }
 
   protected render() {
@@ -95,6 +170,7 @@ export class RqcRoomGrid extends LitElement {
           const done = this._isRoomDone(room.name);
           const position = this._getQueuePosition(room.name);
           const lastCleaned = this._getLastCleaned(room.name);
+          const estimate = this._getRoomEstimate(room.name);
 
           return html`
             <div
@@ -123,6 +199,11 @@ export class RqcRoomGrid extends LitElement {
                     <span>${lastCleaned}</span>`
                   : nothing}
               </div>
+              ${estimate ? html`
+                <div class="card-estimate">
+                  ~${estimate.time} min${estimate.battery != null ? ` / ~${estimate.battery}%` : ''}
+                </div>
+              ` : nothing}
               ${cleaning
                 ? html`<div class="card-status cleaning-status">${t('rooms.cleaning')}</div>`
                 : done
@@ -266,6 +347,12 @@ export class RqcRoomGrid extends LitElement {
         display: flex;
         align-items: center;
         gap: 6px;
+      }
+      .card-estimate {
+        font-size: 11px;
+        color: var(--primary-color, #2196f3);
+        margin-top: 2px;
+        opacity: 0.8;
       }
       .card-status {
         font-size: 12px;

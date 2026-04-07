@@ -2,7 +2,7 @@ import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
 import { RoborockQueueCardConfig } from '../types';
-import { getStatusLabel } from '../const';
+import { CARD_VERSION, getStatusLabel } from '../const';
 import { t } from '../localize';
 
 @customElement('rqc-status-bar')
@@ -85,6 +85,12 @@ export class RqcStatusBar extends LitElement {
     return error;
   }
 
+  private _getActiveRoutine(): {name: string; type: string} | null {
+    if (!this.config?.queue_sensor || !this.hass) return null;
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.active_routine || null;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -135,6 +141,17 @@ export class RqcStatusBar extends LitElement {
           </div>
         ` : nothing}
 
+        ${(() => {
+          const routine = this._getActiveRoutine();
+          return routine ? html`
+            <div class="divider"></div>
+            <div class="status-item">
+              <ha-icon icon="mdi:play-circle" style="--mdc-icon-size: 18px; color: var(--label-badge-green, #43a047);"></ha-icon>
+              <span class="status-value" style="color: var(--label-badge-green, #43a047);">${routine.name}</span>
+            </div>
+          ` : nothing;
+        })()}
+
         <div class="divider"></div>
 
         <div class="status-item">
@@ -144,6 +161,9 @@ export class RqcStatusBar extends LitElement {
           ></ha-icon>
           <span class="status-value">${mopAttached ? t('status.mop_attached') : t('status.mop_not_attached')}</span>
         </div>
+
+        <div class="divider"></div>
+        <span class="version">v${CARD_VERSION}</span>
       </div>
     `;
   }
@@ -192,6 +212,12 @@ export class RqcStatusBar extends LitElement {
         width: 1px;
         height: 24px;
         background: var(--divider-color, rgba(0,0,0,0.08));
+      }
+      .version {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        opacity: 0.5;
+        margin-left: auto;
       }
     `;
   }

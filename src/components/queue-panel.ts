@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { RoborockQueueCardConfig, CleaningMode, FanSpeed, WaterLevel } from '../types';
+import { RoborockQueueCardConfig, CleaningMode, FanSpeed, WaterLevel, Passes } from '../types';
 import { getModeLabel, MODE_ICONS, guessRoomIcon } from '../const';
 import { t } from '../localize';
 
@@ -10,11 +10,13 @@ export interface QueueItem {
   mode: CleaningMode;
   fanSpeed?: FanSpeed;
   waterLevel?: WaterLevel;
+  passes?: Passes;
 }
 
 const MODES: CleaningMode[] = ['vacuum', 'mop', 'deep'];
 const FAN_SPEEDS: FanSpeed[] = ['quiet', 'balanced', 'turbo', 'max'];
 const WATER_LEVELS: WaterLevel[] = ['low', 'medium', 'high'];
+const PASSES_OPTIONS: Passes[] = [1, 2, 3];
 
 const FAN_SPEED_LABELS: Record<FanSpeed, string> = {
   quiet: 'settings.quiet',
@@ -44,6 +46,7 @@ export class RqcQueuePanel extends LitElement {
   @property({ type: Array }) public queueItems: QueueItem[] = [];
   @property({ type: String }) public defaultFanSpeed: FanSpeed = 'balanced';
   @property({ type: String }) public defaultWaterLevel: WaterLevel = 'medium';
+  @property({ type: Number }) public defaultPasses: Passes = 2;
   @property({ attribute: false }) public roomFloorTypes: Record<string, string> = {};
 
   @state() private _expandedSettingsIndex: number | null = null;
@@ -72,6 +75,16 @@ export class RqcQueuePanel extends LitElement {
     this.dispatchEvent(
       new CustomEvent('default-water-level-changed', {
         detail: { waterLevel },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private _handleDefaultPassesChange(passes: Passes): void {
+    this.dispatchEvent(
+      new CustomEvent('default-passes-changed', {
+        detail: { passes },
         bubbles: true,
         composed: true,
       })
@@ -122,7 +135,7 @@ export class RqcQueuePanel extends LitElement {
 
   private async _handleStart(): Promise<void> {
     const steps = (this.queueItems || []).map((item) => {
-      const step: Record<string, string> = {
+      const step: Record<string, string | number> = {
         room: item.room,
         mode: item.mode,
       };
@@ -132,9 +145,9 @@ export class RqcQueuePanel extends LitElement {
         step.fan_speed = effectiveFanSpeed;
       }
       if (item.mode === 'mop' || item.mode === 'deep') {
-        // Use explicit override > floor type default > global default
         step.water_level = item.waterLevel ?? this._getWaterLevelForRoom(item.room);
       }
+      step.passes = item.passes ?? this.defaultPasses;
       return step;
     });
     await this.hass.callService('roborock_mcp', 'queue_start', { steps });
@@ -150,12 +163,105 @@ export class RqcQueuePanel extends LitElement {
     );
   }
 
-  private _getEstimatedTime(): number {
-    let total = 0;
-    for (const item of this.queueItems) {
-      total += MINUTES_PER_STEP[item.mode];
+  private _getRoomHistory(): Record<string, Record<string, any>> {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.room_history || {};
+  }
+
+  /**
+   * Find history entry for a room+mode combo.
+   * History keys are now composite: "vacuum:balanced:off:2", "mop:off:high:1".
+   * We find the best match by mode prefix. If multiple entries exist for the
+   * same mode (different settings), pick the one with the highest clean_count.
+   */
+  private _findHistoryEntry(room: string, mode: string): any | null {
+    const history = this._getRoomHistory();
+    const roomData = history[room];
+    if (!roomData) return null;
+
+    // Try plain key first (backwards compat with v1 data that hasn't migrated yet)
+    if (roomData[mode]?.avg_duration_s) return roomData[mode];
+
+    // Search composite keys by mode prefix
+    let best: any = null;
+    for (const [key, entry] of Object.entries(roomData)) {
+      if (key.startsWith(mode + ':') && (entry as any)?.avg_duration_s) {
+        if (!best || ((entry as any).clean_count || 0) > (best.clean_count || 0)) {
+          best = entry;
+        }
+      }
     }
-    return total;
+    return best;
+  }
+
+  private _getEstimatedTime(): number | null {
+    let total = 0;
+    let hasData = false;
+
+    for (const item of this.queueItems) {
+      const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+      for (const m of modes) {
+        const entry = this._findHistoryEntry(item.room, m);
+        if (entry?.avg_duration_s) {
+          total += entry.avg_duration_s;
+          hasData = true;
+        } else {
+          total += 300;
+        }
+      }
+    }
+    return hasData ? Math.round(total / 60) : null;
+  }
+
+  private _getItemEstimate(item: QueueItem): { time: number; battery: number | null } | null {
+    const history = this._getRoomHistory();
+    const roomData = history[item.room];
+    if (!roomData) return null;
+
+    const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+    let totalTime = 0;
+    let totalBattery = 0;
+    let hasBattery = false;
+    let hasAny = false;
+
+    for (const mode of modes) {
+      const fanSpeed = mode === 'mop' ? 'off' : (item.fanSpeed || this.defaultFanSpeed);
+      const waterLevel = mode === 'vacuum' ? 'off' : (item.waterLevel || this.defaultWaterLevel);
+      const passes = item.passes || this.defaultPasses;
+      const key = `${mode}:${fanSpeed}:${waterLevel}:${passes}`;
+      const entry = roomData[key];
+      if (entry && entry.clean_count >= 3 && entry.avg_duration_s) {
+        totalTime += entry.avg_duration_s;
+        hasAny = true;
+        if (entry.avg_battery_pct != null && (entry.battery_clean_count || 0) >= 3) {
+          totalBattery += entry.avg_battery_pct;
+          hasBattery = true;
+        }
+      }
+    }
+
+    if (!hasAny) return null;
+    return {
+      time: Math.round(totalTime / 60),
+      battery: hasBattery ? Math.round(totalBattery) : null,
+    };
+  }
+
+  private _getEstimatedBattery(): number | null {
+    let total = 0;
+    let hasData = false;
+
+    for (const item of this.queueItems) {
+      const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+      for (const m of modes) {
+        const entry = this._findHistoryEntry(item.room, m);
+        if (entry?.avg_battery_pct && (entry?.battery_clean_count || 0) >= 3) {
+          total += entry.avg_battery_pct;
+          hasData = true;
+        }
+      }
+    }
+    return hasData ? Math.round(total) : null;
   }
 
   private _getRoomIcon(roomName: string): string {
@@ -175,8 +281,6 @@ export class RqcQueuePanel extends LitElement {
 
   protected render() {
     if (!this.hass || !this.config) return nothing;
-
-    const estimatedTime = this._getEstimatedTime();
 
     return html`
       <div class="queue-panel">
@@ -252,6 +356,14 @@ export class RqcQueuePanel extends LitElement {
                             <ha-icon icon="mdi:close" style="--mdc-icon-size: 16px;"></ha-icon>
                           </button>
                         </div>
+                        ${(() => {
+                          const est = this._getItemEstimate(item);
+                          return est ? html`
+                            <div class="q-item-estimate">
+                              ~${est.time} min${est.battery != null ? ` / ~${est.battery}%` : ''}
+                            </div>
+                          ` : nothing;
+                        })()}
                         ${item.mode === 'deep'
                           ? html`
                               <div class="deep-substeps">
@@ -280,8 +392,30 @@ export class RqcQueuePanel extends LitElement {
           ${this.queueItems.length > 0
             ? html`
                 <div class="estimated-time">
-                  <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
-                  ${t('queue.estimate')}: ${t('queue.estimate_no_data')}
+                  ${(() => {
+                    const estTime = this._getEstimatedTime();
+                    const estBattery = this._getEstimatedBattery();
+                    if (estTime === null && estBattery === null) {
+                      return html`
+                        <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
+                        ${t('queue.estimate')}: ${t('queue.estimate_no_data')}
+                      `;
+                    }
+                    return html`
+                      ${estTime !== null ? html`
+                        <span class="est-item">
+                          <ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 14px;"></ha-icon>
+                          ${t('queue.estimate_minutes').replace('{0}', String(estTime))}
+                        </span>
+                      ` : nothing}
+                      ${estBattery !== null ? html`
+                        <span class="est-item">
+                          <ha-icon icon="mdi:battery-minus" style="--mdc-icon-size: 14px;"></ha-icon>
+                          ~${estBattery}%
+                        </span>
+                      ` : nothing}
+                    `;
+                  })()}
                 </div>
               `
             : nothing}
@@ -301,6 +435,67 @@ export class RqcQueuePanel extends LitElement {
             ${t('queue.clear')}
           </button>
         </div>
+
+        <!-- Last cleaning summary -->
+        ${this._renderLastRun()}
+      </div>
+    `;
+  }
+
+  private _getLastRun(): Array<{room: string; mode: string; status: string}> | null {
+    const queueState = this.hass.states[this.config.queue_sensor];
+    return queueState?.attributes?.last_run || null;
+  }
+
+  private _getLastRunTime(): string | null {
+    const lastRun = this._getLastRun();
+    if (!lastRun) return null;
+    let latest: string | null = null;
+    for (const step of lastRun.filter((s) => s.status === 'completed')) {
+      const entry = this._findHistoryEntry(step.room, step.mode);
+      const ts = entry?.last_cleaned;
+      if (ts && (!latest || ts > latest)) latest = ts;
+    }
+    if (!latest) return null;
+    const d = new Date(latest);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  private _getStepDuration(room: string, mode: string): string | null {
+    const entry = this._findHistoryEntry(room, mode);
+    const dur = entry?.last_duration_s;
+    if (!dur) return null;
+    return `${Math.round(dur / 60)} min`;
+  }
+
+  private _renderLastRun() {
+    const lastRun = this._getLastRun();
+    if (!lastRun || lastRun.length === 0) return nothing;
+
+    const finishedTime = this._getLastRunTime();
+
+    return html`
+      <div class="last-run">
+        <h3>${t('queue.last_run_title')}</h3>
+        <div class="last-run-list">
+          ${lastRun
+            .filter((s) => s.status === 'completed')
+            .map(
+              (step) => html`
+                <div class="last-run-item">
+                  <ha-icon .icon=${MODE_ICONS[step.mode as CleaningMode] || 'mdi:robot-vacuum'} style="--mdc-icon-size: 16px;"></ha-icon>
+                  <span class="last-run-room">${step.room}</span>
+                  <span class="last-run-mode">${getModeLabel(step.mode as CleaningMode)}</span>
+                  ${this._getStepDuration(step.room, step.mode)
+                    ? html`<span class="last-run-duration">${this._getStepDuration(step.room, step.mode)}</span>`
+                    : nothing}
+                </div>
+              `
+            )}
+        </div>
+        ${finishedTime
+          ? html`<div class="last-run-time">${t('queue.last_run_finished')} ${finishedTime}</div>`
+          : nothing}
       </div>
     `;
   }
@@ -308,8 +503,6 @@ export class RqcQueuePanel extends LitElement {
   private _renderDefaultSettings() {
     const showFan = this._showFanSpeed(this.defaultMode);
     const showWater = this._showWaterLevel(this.defaultMode);
-
-    if (!showFan && !showWater) return nothing;
 
     return html`
       <div class="default-settings">
@@ -351,6 +544,21 @@ export class RqcQueuePanel extends LitElement {
               </div>
             `
           : nothing}
+        <div class="setting-row">
+          <div class="setting-label">${t('settings.passes')}</div>
+          <div class="setting-pills small">
+            ${PASSES_OPTIONS.map(
+              (p) => html`
+                <button
+                  class="setting-pill ${this.defaultPasses === p ? 'active' : ''}"
+                  @click=${() => this._handleDefaultPassesChange(p)}
+                >
+                  ${p}x
+                </button>
+              `
+            )}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -359,11 +567,10 @@ export class RqcQueuePanel extends LitElement {
     const showFan = this._showFanSpeed(item.mode);
     const showWater = this._showWaterLevel(item.mode);
 
-    if (!showFan && !showWater) return nothing;
-
     const currentFanSpeed = item.fanSpeed ?? this.defaultFanSpeed;
     const floorDefault = this._getWaterLevelForRoom(item.room);
     const currentWaterLevel = item.waterLevel ?? floorDefault;
+    const currentPasses = item.passes ?? this.defaultPasses;
 
     return html`
       <div class="item-settings">
@@ -413,6 +620,24 @@ export class RqcQueuePanel extends LitElement {
               </div>
             `
           : nothing}
+        <div class="setting-row compact">
+          <div class="setting-label">${t('settings.passes')}</div>
+          <div class="setting-pills tiny">
+            ${PASSES_OPTIONS.map(
+              (p) => html`
+                <button
+                  class="setting-pill ${currentPasses === p ? 'active' : ''} ${item.passes === p ? 'overridden' : ''}"
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._handleItemSettingChanged(index, 'passes', p);
+                  }}
+                >
+                  ${p}x
+                </button>
+              `
+            )}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -576,6 +801,12 @@ export class RqcQueuePanel extends LitElement {
         display: flex;
         flex-direction: column;
       }
+      .q-item-estimate {
+        font-size: 11px;
+        color: var(--primary-color, #2196f3);
+        padding: 2px 14px 4px 52px;
+        opacity: 0.8;
+      }
       .q-item {
         display: flex;
         align-items: center;
@@ -698,11 +929,17 @@ export class RqcQueuePanel extends LitElement {
       .estimated-time {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 12px;
         font-size: 13px;
         color: var(--secondary-text-color);
         margin-bottom: 8px;
         justify-content: center;
+        flex-wrap: wrap;
+      }
+      .est-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
       .panel-controls {
         padding: 16px 20px;
@@ -748,6 +985,49 @@ export class RqcQueuePanel extends LitElement {
         font-size: 13px;
         min-height: 40px;
         padding: 8px;
+      }
+      .last-run {
+        padding: 16px 20px;
+        border-top: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+      }
+      .last-run h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .last-run-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .last-run-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--primary-text-color);
+      }
+      .last-run-room {
+        flex: 1;
+        font-weight: 500;
+      }
+      .last-run-mode {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .last-run-duration {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-weight: 500;
+      }
+      .last-run-time {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        text-align: right;
       }
     `;
   }

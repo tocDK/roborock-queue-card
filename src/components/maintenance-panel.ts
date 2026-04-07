@@ -53,9 +53,15 @@ export class RqcMaintenancePanel extends LitElement {
 
   private _getConsumableHoursLeft(sensorSuffix: string): number | null {
     const name = this._getDeviceName();
-    const val = this._getEntityState(`sensor.${name}_${sensorSuffix}`);
-    if (val === undefined || val === 'unavailable' || val === 'unknown') return null;
-    return parseFloat(val);
+    const entityId = `sensor.${name}_${sensorSuffix}`;
+    const stateObj = this.hass.states[entityId];
+    if (!stateObj || stateObj.state === 'unavailable' || stateObj.state === 'unknown') return null;
+    const val = parseFloat(stateObj.state);
+    if (isNaN(val)) return null;
+    // Convert based on unit — most sensors report seconds, dock_strainer reports hours
+    const unit = stateObj.attributes?.unit_of_measurement || '';
+    if (unit === 's') return val / 3600;
+    return val; // already in hours
   }
 
   private _getBarColor(pct: number): string {
@@ -282,16 +288,18 @@ export class RqcMaintenancePanel extends LitElement {
 
   private _formatArea(val: string): string {
     if (val === '-') return val;
-    const num = parseInt(val, 10);
+    const num = parseFloat(val);
     if (isNaN(num)) return val;
-    return `${num.toLocaleString('da-DK')} m\u00B2`;
+    return `${Math.round(num).toLocaleString('da-DK')} m\u00B2`;
   }
 
   private _formatTime(val: string): string {
     if (val === '-') return val;
     const num = parseInt(val, 10);
     if (isNaN(num)) return val;
-    return `${num} t`;
+    // total_cleaning_time is in seconds — convert to hours
+    const hours = Math.round(num / 3600);
+    return `${hours.toLocaleString('da-DK')} t`;
   }
 
   private _renderConsumable(consumable: ConsumableItem) {
