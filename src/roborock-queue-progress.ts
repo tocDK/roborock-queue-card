@@ -133,11 +133,11 @@ export class RoborockQueueProgress extends LitElement {
 
         <!-- Stats rows -->
         <div class="stats">
-          ${queueProgress?.total_battery_used != null ? html`
+          ${queueProgress?.battery_current != null ? html`
             <div class="stat-row">
-              <ha-icon icon="mdi:battery-minus" style="--mdc-icon-size: 18px;"></ha-icon>
-              <span class="stat-label">${t('progress.battery')} ${t('progress.battery_used')}</span>
-              <span class="stat-value">${queueProgress.total_battery_used}%</span>
+              <ha-icon icon="mdi:battery" style="--mdc-icon-size: 18px;"></ha-icon>
+              <span class="stat-label">${t('progress.battery')}</span>
+              <span class="stat-value">${queueProgress.battery_current}%</span>
             </div>
           ` : nothing}
 
