@@ -213,6 +213,40 @@ export class RqcQueuePanel extends LitElement {
     return hasData ? Math.round(total / 60) : null;
   }
 
+  private _getItemEstimate(item: QueueItem): { time: number; battery: number | null } | null {
+    const history = this._getRoomHistory();
+    const roomData = history[item.room];
+    if (!roomData) return null;
+
+    const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
+    let totalTime = 0;
+    let totalBattery = 0;
+    let hasBattery = false;
+    let hasAny = false;
+
+    for (const mode of modes) {
+      const fanSpeed = mode === 'mop' ? 'off' : (item.fanSpeed || this.defaultFanSpeed);
+      const waterLevel = mode === 'vacuum' ? 'off' : (item.waterLevel || this.defaultWaterLevel);
+      const passes = item.passes || this.defaultPasses;
+      const key = `${mode}:${fanSpeed}:${waterLevel}:${passes}`;
+      const entry = roomData[key];
+      if (entry && entry.clean_count >= 3 && entry.avg_duration_s) {
+        totalTime += entry.avg_duration_s;
+        hasAny = true;
+        if (entry.avg_battery_pct != null) {
+          totalBattery += entry.avg_battery_pct;
+          hasBattery = true;
+        }
+      }
+    }
+
+    if (!hasAny) return null;
+    return {
+      time: Math.round(totalTime / 60),
+      battery: hasBattery ? Math.round(totalBattery) : null,
+    };
+  }
+
   private _getEstimatedBattery(): number | null {
     let total = 0;
     let hasData = false;
@@ -322,6 +356,14 @@ export class RqcQueuePanel extends LitElement {
                             <ha-icon icon="mdi:close" style="--mdc-icon-size: 16px;"></ha-icon>
                           </button>
                         </div>
+                        ${(() => {
+                          const est = this._getItemEstimate(item);
+                          return est ? html`
+                            <div class="q-item-estimate">
+                              ~${est.time} min${est.battery != null ? ` / ~${est.battery}%` : ''}
+                            </div>
+                          ` : nothing;
+                        })()}
                         ${item.mode === 'deep'
                           ? html`
                               <div class="deep-substeps">
@@ -758,6 +800,12 @@ export class RqcQueuePanel extends LitElement {
       .q-item-wrapper {
         display: flex;
         flex-direction: column;
+      }
+      .q-item-estimate {
+        font-size: 11px;
+        color: var(--primary-color, #2196f3);
+        padding: 2px 14px 4px 52px;
+        opacity: 0.8;
       }
       .q-item {
         display: flex;
