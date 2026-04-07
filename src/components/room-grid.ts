@@ -120,7 +120,7 @@ export class RqcRoomGrid extends LitElement {
       if (entry && entry.clean_count >= 3 && entry.avg_duration_s) {
         totalTime += entry.avg_duration_s;
         hasAny = true;
-        if (entry.avg_battery_pct != null) {
+        if (entry.avg_battery_pct != null && (entry.battery_clean_count || 0) >= 3) {
           totalBattery += entry.avg_battery_pct;
           hasBattery = true;
         }

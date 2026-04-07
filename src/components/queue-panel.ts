@@ -233,7 +233,7 @@ export class RqcQueuePanel extends LitElement {
       if (entry && entry.clean_count >= 3 && entry.avg_duration_s) {
         totalTime += entry.avg_duration_s;
         hasAny = true;
-        if (entry.avg_battery_pct != null) {
+        if (entry.avg_battery_pct != null && (entry.battery_clean_count || 0) >= 3) {
           totalBattery += entry.avg_battery_pct;
           hasBattery = true;
         }
@@ -255,7 +255,7 @@ export class RqcQueuePanel extends LitElement {
       const modes = item.mode === 'deep' ? ['vacuum', 'mop'] : [item.mode];
       for (const m of modes) {
         const entry = this._findHistoryEntry(item.room, m);
-        if (entry?.avg_battery_pct && entry?.clean_count >= 3) {
+        if (entry?.avg_battery_pct && (entry?.battery_clean_count || 0) >= 3) {
           total += entry.avg_battery_pct;
           hasData = true;
         }
