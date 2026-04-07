@@ -192,20 +192,14 @@ export class RqcQueueControls extends LitElement {
             </div>
 
             ${stepProgress.step_estimated_s != null ? html`
-              <!-- Time-based step progress bar -->
               <div class="step-progress-bar">
                 <div class="step-progress-fill" style="width: ${Math.min(100, Math.round((stepProgress.step_elapsed_s / stepProgress.step_estimated_s) * 100))}%"></div>
               </div>
               <div class="step-stats">
-                <span>${t('progress.battery')}: ${stepProgress.battery_used}% / ~${stepProgress.step_estimated_battery}%</span>
+                <span>${t('progress.battery')}: ${stepProgress.battery_used}%${stepProgress.step_estimated_battery != null ? ` / ~${stepProgress.step_estimated_battery}%` : ''}</span>
                 <span>${this._formatTime(stepProgress.step_elapsed_s)} / ~${this._formatTime(stepProgress.step_estimated_s)}</span>
               </div>
             ` : html`
-              <!-- No estimate yet — learning mode -->
-              <div class="step-learning">
-                <ha-icon icon="mdi:school-outline" style="--mdc-icon-size: 16px;"></ha-icon>
-                <span>${t('progress.learning').replace('{0}', String(this._getCleanCount(stepProgress)))}</span>
-              </div>
               <div class="step-stats">
                 <span>${t('progress.battery')}: ${stepProgress.battery_used}%</span>
                 <span>${this._formatTime(stepProgress.step_elapsed_s)}</span>
